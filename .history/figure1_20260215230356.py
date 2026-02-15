@@ -41,7 +41,7 @@ def create_regular_polygon(center, radius, nsides=3):
 def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
     """
     在纯 2D 平面上创建平滑的连续渐变带
-    从黑色圆的边界出发，向左延伸，逐渐变窄、变浅、变透明
+    从黑色圆的边界出发，向上延伸，逐渐变窄、变浅、变透明
     """
     n_segments = 60
     segment_list = []
@@ -52,7 +52,8 @@ def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
         t_params = np.linspace(t_start, t_end, 15)
 
         # 中心线：起点在 (0, 0)，向左延伸 (负 X 方向)
-        centerline_x = -0.30 * t_params
+        # 宽度从 cat_radius 开始，这样上下边界就是 [-cat_radius, cat_radius]，与圆相切
+        centerline_x = -0.30 * t_params  # 向左延伸
         centerline_y = 0.0 - 0.06 * t_params * np.sin(np.pi * t_params)
         centerline_z = np.full_like(t_params, z_height)
 
@@ -61,6 +62,7 @@ def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
 
         segment_points = []
         for i in range(len(t_params)):
+            # 边界点现在沿 Y 轴分布，以实现向左延伸的相切效果
             segment_points.append(
                 [centerline_x[i], centerline_y[i] - widths[i], z_height])
             segment_points.append(
@@ -150,50 +152,31 @@ def main():
                          outer=cat_radius, normal=[0, 0, 1], c_res=50)
     plotter.add_mesh(tip_circle, color="#333333", opacity=1.0)
 
-    # 【修改位置 3】右侧截面图障碍物，增加防重叠逻辑（包括渐变带）
+    # 【修改位置 3】右侧截面图障碍物的大小、位置和类型 (增加数量，减小尺寸，确保不重叠)
     np.random.seed(42)
-    count = 0
-    attempts = 0
-    while count < 35 and attempts < 200:  # 增加到 35 个，增加尝试次数
-        attempts += 1
+    for i in range(30):  # 增加数量到 30 个
         angle = np.random.uniform(0, 2*np.pi)
+        # 确保最小距离大于 cat_radius + 最大障碍物半径 + 缓冲
+        # cat_radius=0.04, max_base_r=0.018, min_dist = 0.04 + 0.018 + 0.01 = 0.068
         dist = np.random.uniform(0.07, 0.28)
-        ox = dist * np.cos(angle)
-        oy = dist * np.sin(angle)
+        local_pos = [dist * np.cos(angle), dist * np.sin(angle), tip_pos[2]]
 
-        base_r = np.random.uniform(0.008, 0.016)  # 进一步减小尺寸
-
-        # --- 渐变带重叠检查 ---
-        is_overlapping_band = False
-        if ox < 0.05:  # 渐变带在左侧 (x < 0)
-            # 计算渐变带在该 x 处的 y 中心和宽度
-            t = ox / -0.30
-            if 0 <= t <= 1.1:  # 稍微放宽范围
-                band_y = 0.0 - 0.06 * t * np.sin(np.pi * t)
-                band_w = cat_radius * (1 - t ** 1.5)
-                # 如果障碍物中心到带中心的 y 距离小于 (带半宽 + 障碍物半径 + 缓冲)
-                if abs(oy - band_y) < (band_w + base_r + 0.01):
-                    is_overlapping_band = True
-
-        if is_overlapping_band:
-            continue
-
-        # --- 生成障碍物 ---
-        local_pos = [ox, oy, tip_pos[2]]
         rand_val = np.random.rand()
+        base_r = np.random.uniform(0.008, 0.018)  # 减小尺寸
+
         if rand_val < 0.33:
             obs_p = pv.Disc(center=local_pos, inner=0,
                             outer=base_r, normal=[0, 0, 1], c_res=30)
         elif rand_val < 0.66:
             ratio = np.random.uniform(0.7, 1.3)
-            w, h = base_r, base_r * ratio
-            obs_p = pv.Box(bounds=[ox-w, ox+w, oy-h, oy+h,
-                           tip_pos[2]-0.001, tip_pos[2]+0.001])
+            w = base_r
+            h = base_r * ratio
+            obs_p = pv.Box(bounds=[local_pos[0]-w, local_pos[0]+w, local_pos[1] -
+                           h, local_pos[1]+h, tip_pos[2]-0.001, tip_pos[2]+0.001])
         else:
             obs_p = create_regular_polygon(local_pos, base_r, nsides=3)
 
         plotter.add_mesh(obs_p, color="red", opacity=0.8)
-        count += 1
 
     det_circle = pv.Circle(radius=cat_radius*4, resolution=50)
     det_circle.points[:, 2] = tip_pos[2]
