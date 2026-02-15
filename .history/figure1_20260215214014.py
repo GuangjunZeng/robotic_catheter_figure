@@ -38,68 +38,90 @@ def create_regular_polygon(center, radius, nsides=3):
     return pv.PolyData(pts, faces)
 
 
-def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
+def create_smooth_gradient_ribbon(z_height=0, cat_radius=0.04):
     """
-    在纯 2D 平面上创建平滑的连续渐变带
-    从黑色圆的边界出发，向上延伸，逐渐变窄、变浅、变透明
+    创建一条平滑、连续的渐变弯曲带状体，从尖端向后延伸
+    用来表现柔性导管从 3D 空间穿过截面的效果
     """
-    n_segments = 60
-    segment_list = []
+    # 参数化中心线：从 (0, 0) 向上方延伸，带有轻微的正弦波曲线
+    t_centerline = np.linspace(0, 1, 100)
+    # 中心线：从 y=0 逐渐向上（z 方向在 3D 中），x 方向有轻微波动
+    centerline_x = 0.08 * np.sin(t_centerline * np.pi)  # 轻微左右摇摆
+    centerline_y = 0.15 * t_centerline  # 逐渐向上延伸
+    centerline_z = np.full_like(t_centerline, z_height)
 
-    for seg_idx in range(n_segments):
-        t_start = seg_idx / n_segments
-        t_end = (seg_idx + 1) / n_segments
-        t_params = np.linspace(t_start, t_end, 15)
+    centerline = np.column_stack([centerline_x, centerline_y, centerline_z])
 
-        # 中心线：起点在 (0, 0)，即圆心
-        # 宽度从 cat_radius 开始，这样左右边界就是 [-cat_radius, cat_radius]，与圆相切
-        centerline_x = 0.0 - 0.06 * t_params * np.sin(np.pi * t_params)
-        centerline_y = 0.30 * t_params
-        centerline_z = np.full_like(t_params, z_height)
+    # 为每个中心线点生成带的两个边界点
+    n_points = len(centerline)
+    ribbon_points = []
 
-        # 宽度：从 cat_radius 缓慢变窄
-        widths = cat_radius * (1 - t_params ** 1.5)
+    for i, center_pt in enumerate(centerline):
+        # 进度：从 0（尖端）到 1（后方）
+        progress = i / (n_points - 1)
 
-        segment_points = []
-        for i in range(len(t_params)):
-            segment_points.append(
-                [centerline_x[i] - widths[i], centerline_y[i], z_height])
-            segment_points.append(
-                [centerline_x[i] + widths[i], centerline_y[i], z_height])
+        # 宽度：从 cat_radius 逐渐增大
+        width = cat_radius * (1 + progress * 2.5)
 
-        segment_points = np.array(segment_points)
-        segment_faces = []
-        for i in range(len(t_params) - 1):
-            p0_left, p0_right = i * 2, i * 2 + 1
-            p1_left, p1_right = (i + 1) * 2, (i + 1) * 2 + 1
-            segment_faces.extend([3, p0_left, p0_right, p1_right])
-            segment_faces.extend([3, p0_left, p1_right, p1_left])
+        # 两个边界点（沿 x 方向）
+        left_pt = center_pt + np.array([-width, 0, 0])
+        right_pt = center_pt + np.array([width, 0, 0])
 
-        segment_mesh = pv.PolyData(segment_points, np.array(segment_faces))
+        ribbon_points.append(left_pt)
+        ribbon_points.append(right_pt)
 
-        progress = (t_start + t_end) / 2
-        if progress < 0.25:
-            r_val = int(51 + (102 - 51) * (progress / 0.25))
-        elif progress < 0.5:
-            r_val = int(102 + (153 - 102) * ((progress - 0.25) / 0.25))
-        elif progress < 0.75:
-            r_val = int(153 + (204 - 153) * ((progress - 0.5) / 0.25))
-        else:
-            r_val = int(204 + (238 - 204) * ((progress - 0.75) / 0.25))
+    ribbon_points = np.array(ribbon_points)
 
-        color = f"#{r_val:02x}{r_val:02x}{r_val:02x}"
-        opacity = 0.95 * (1 - progress ** 0.8)
-        segment_list.append((segment_mesh, color, opacity))
+    # 构建四边形面（Quad）
+    n_segments = n_points - 1
+    faces = []
+    for i in range(n_segments):
+        # 当前和下一个中心线点对应的四个顶点
+        p0_left = i * 2
+        p0_right = i * 2 + 1
+        p1_left = (i + 1) * 2
+        p1_right = (i + 1) * 2 + 1
 
-    return segment_list
+        # 创建四边形：(p0_left, p0_right, p1_right, p1_left)
+        faces.append(4)
+        faces.append(p0_left)
+        faces.append(p0_right)
+        faces.append(p1_right)
+        faces.append(p1_left)
+
+    faces = np.array(faces)
+
+    # 创建 PolyData
+    ribbon_mesh = pv.PolyData(ribbon_points, faces)
+
+    # 为每个顶点添加标量值，用于颜色和透明度映射
+    # 标量值从 1（尖端，最深）到 0（后方，最浅）
+    vertex_scalars = []
+    for i in range(len(ribbon_points)):
+        center_idx = i // 2
+        progress = center_idx / (n_points - 1)
+        scalar = 1 - progress  # 从 1 到 0
+        vertex_scalars.append(scalar)
+
+    vertex_scalars = np.array(vertex_scalars)
+    ribbon_mesh.point_data["intensity"] = vertex_scalars
+
+    return ribbon_mesh
 
 
 def main():
+    # 1. 创建双视口绘图器
     plotter = pv.Plotter(shape=(1, 2), window_size=[1600, 800])
     plotter.set_background("white")
 
-    catheter_points = np.array([[0, 0, 0], [0.2, 0.5, 0.8], [0.5, 1.2, 1.5], [
-                               1.2, 1.8, 2.0], [2.0, 2.2, 2.5]])
+    # --- 数据准备 ---
+    catheter_points = np.array([
+        [0, 0, 0],
+        [0.2, 0.5, 0.8],
+        [0.5, 1.2, 1.5],
+        [1.2, 1.8, 2.0],
+        [2.0, 2.2, 2.5]
+    ])
     cat_radius = 0.04
     catheter_mesh, smooth_pts = create_catheter_model(
         catheter_points, radius=cat_radius)
@@ -112,10 +134,12 @@ def main():
     sphere_pos = [[1.6, 1.8, 2.4], [1.2, 0.8, 1.8]]
     cyl_pos = [{"center": [2.2, 1.5, 2.0], "dir": [0, 0, 1]}]
 
+    # --- 左侧视口: 3D 全景 ---
     plotter.subplot(0, 0)
     plotter.add_text("Global Workspace", font_size=12, color="black")
     plotter.add_mesh(catheter_mesh, color="#333333",
                      smooth_shading=True, specular=0.5)
+
     for pos in box_pos:
         b = pv.Box(bounds=[pos[0]-obs_size, pos[0]+obs_size, pos[1] -
                    obs_size, pos[1]+obs_size, pos[2]-obs_size, pos[2]+obs_size])
@@ -137,26 +161,37 @@ def main():
     plotter.camera_position = [
         (6.0, 4.0, 5.0), (1.0, 1.2, 1.2), (0.0, 0.0, 1.0)]
 
+    # --- 右侧视口: 尖端截面细节 (完全 2D 视图) ---
     plotter.subplot(0, 1)
     plotter.add_text("Tip Cross-section View (2D Control Plane)",
                      font_size=12, color="black")
 
-    gradient_segments = create_smooth_2d_gradient_band(
+    # 【方案 A 平滑连续版本】：绘制渐变的弯曲带状体
+    ribbon_mesh = create_smooth_gradient_ribbon(
         z_height=tip_pos[2], cat_radius=cat_radius)
-    for segment_mesh, color, opacity in gradient_segments:
-        plotter.add_mesh(segment_mesh, color=color,
-                         opacity=opacity, smooth_shading=True)
 
+    # 渲染带状体：不使用透明度映射（避免报错），而是为不同部分绘制不同的颜色/透明度
+    # 我们分段渲染，每一小段都有不同的颜色
+
+    # 简单方案：直接用标量值来着色，从深灰到浅灰到白色
+    plotter.add_mesh(ribbon_mesh, color="gray",
+                     show_scalar_bar=False, smooth_shading=True)
+
+    # 中心圆点：尖端
     tip_circle = pv.Disc(center=[0, 0, tip_pos[2]], inner=0,
                          outer=cat_radius, normal=[0, 0, 1], c_res=50)
     plotter.add_mesh(tip_circle, color="#333333", opacity=0.95)
 
+    # 3. 规范化生成的障碍物
     np.random.seed(42)
     for i in range(15):
         angle = np.random.uniform(0, 2*np.pi)
         dist = np.random.uniform(cat_radius*1.5, 0.28)
         local_pos = [dist * np.cos(angle), dist * np.sin(angle), tip_pos[2]]
-        rand_val, base_r = np.random.rand(), np.random.uniform(0.015, 0.03)
+
+        rand_val = np.random.rand()
+        base_r = np.random.uniform(0.015, 0.03)
+
         if rand_val < 0.33:
             obs_p = pv.Disc(center=local_pos, inner=0,
                             outer=base_r, normal=[0, 0, 1], c_res=30)
@@ -166,23 +201,28 @@ def main():
                            h, local_pos[1]+h, tip_pos[2]-0.001, tip_pos[2]+0.001])
         else:
             obs_p = create_regular_polygon(local_pos, base_r, nsides=3)
+
         plotter.add_mesh(obs_p, color="red", opacity=0.8)
 
+    # 4. 探测范围圆
     det_circle = pv.Circle(radius=cat_radius*4, resolution=50)
     det_circle.points[:, 2] = tip_pos[2]
     plotter.add_mesh(det_circle, color="green",
                      style="wireframe", line_width=1.5)
 
+    # 5. 浅灰色边框
     roi_border = pv.Box(
         bounds=[-0.3, 0.3, -0.3, 0.3, tip_pos[2]-0.001, tip_pos[2]+0.001])
     plotter.add_mesh(roi_border, color="lightgray",
                      style="wireframe", line_width=2)
 
+    # 设置右侧相机：正对 XY 平面
     plotter.camera.position = [0, 0, tip_pos[2] + 1.0]
     plotter.camera.focal_point = [0, 0, tip_pos[2]]
     plotter.camera.up = [0, 1, 0]
     plotter.enable_parallel_projection()
     plotter.reset_camera()
+
     plotter.show()
 
 

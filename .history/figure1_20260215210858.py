@@ -24,7 +24,7 @@ def create_catheter_model(points, radius=0.02):
 
 def create_regular_polygon(center, radius, nsides=3):
     """
-    创建一个带随机扰动的正多边形
+    创建一个带随机扰动的正多边形，避免出现过细的形状
     """
     angles = np.linspace(0, 2*np.pi, nsides, endpoint=False)
     angles += np.random.uniform(0, 2*np.pi)
@@ -38,72 +38,24 @@ def create_regular_polygon(center, radius, nsides=3):
     return pv.PolyData(pts, faces)
 
 
-def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
-    """
-    在纯 2D 平面上创建平滑的连续渐变带
-    从黑色圆的边界出发，向上延伸，逐渐变窄、变浅、变透明
-    """
-    n_segments = 60
-    segment_list = []
-
-    for seg_idx in range(n_segments):
-        t_start = seg_idx / n_segments
-        t_end = (seg_idx + 1) / n_segments
-        t_params = np.linspace(t_start, t_end, 15)
-
-        # 中心线：起点在 (0, 0)，即圆心
-        # 宽度从 cat_radius 开始，这样左右边界就是 [-cat_radius, cat_radius]，与圆相切
-        centerline_x = 0.0 - 0.06 * t_params * np.sin(np.pi * t_params)
-        centerline_y = 0.30 * t_params
-        centerline_z = np.full_like(t_params, z_height)
-
-        # 宽度：从 cat_radius 缓慢变窄
-        widths = cat_radius * (1 - t_params ** 1.5)
-
-        segment_points = []
-        for i in range(len(t_params)):
-            segment_points.append(
-                [centerline_x[i] - widths[i], centerline_y[i], z_height])
-            segment_points.append(
-                [centerline_x[i] + widths[i], centerline_y[i], z_height])
-
-        segment_points = np.array(segment_points)
-        segment_faces = []
-        for i in range(len(t_params) - 1):
-            p0_left, p0_right = i * 2, i * 2 + 1
-            p1_left, p1_right = (i + 1) * 2, (i + 1) * 2 + 1
-            segment_faces.extend([3, p0_left, p0_right, p1_right])
-            segment_faces.extend([3, p0_left, p1_right, p1_left])
-
-        segment_mesh = pv.PolyData(segment_points, np.array(segment_faces))
-
-        progress = (t_start + t_end) / 2
-        if progress < 0.25:
-            r_val = int(51 + (102 - 51) * (progress / 0.25))
-        elif progress < 0.5:
-            r_val = int(102 + (153 - 102) * ((progress - 0.25) / 0.25))
-        elif progress < 0.75:
-            r_val = int(153 + (204 - 153) * ((progress - 0.5) / 0.25))
-        else:
-            r_val = int(204 + (238 - 204) * ((progress - 0.75) / 0.25))
-
-        color = f"#{r_val:02x}{r_val:02x}{r_val:02x}"
-        opacity = 0.95 * (1 - progress ** 0.8)
-        segment_list.append((segment_mesh, color, opacity))
-
-    return segment_list
-
-
 def main():
+    # 1. 创建双视口绘图器
     plotter = pv.Plotter(shape=(1, 2), window_size=[1600, 800])
     plotter.set_background("white")
 
-    catheter_points = np.array([[0, 0, 0], [0.2, 0.5, 0.8], [0.5, 1.2, 1.5], [
-                               1.2, 1.8, 2.0], [2.0, 2.2, 2.5]])
+    # --- 数据准备 ---
+    catheter_points = np.array([
+        [0, 0, 0],
+        [0.2, 0.5, 0.8],
+        [0.5, 1.2, 1.5],
+        [1.2, 1.8, 2.0],
+        [2.0, 2.2, 2.5]
+    ])
     cat_radius = 0.04
     catheter_mesh, smooth_pts = create_catheter_model(
         catheter_points, radius=cat_radius)
     tip_pos = smooth_pts[-1]
+    # 计算尖端切向向量
     tip_dir = (smooth_pts[-1] - smooth_pts[-10]) / \
         np.linalg.norm(smooth_pts[-1] - smooth_pts[-10])
 
@@ -112,10 +64,12 @@ def main():
     sphere_pos = [[1.6, 1.8, 2.4], [1.2, 0.8, 1.8]]
     cyl_pos = [{"center": [2.2, 1.5, 2.0], "dir": [0, 0, 1]}]
 
+    # --- 左侧视口: 3D 全景 ---
     plotter.subplot(0, 0)
     plotter.add_text("Global Workspace", font_size=12, color="black")
     plotter.add_mesh(catheter_mesh, color="#333333",
                      smooth_shading=True, specular=0.5)
+
     for pos in box_pos:
         b = pv.Box(bounds=[pos[0]-obs_size, pos[0]+obs_size, pos[1] -
                    obs_size, pos[1]+obs_size, pos[2]-obs_size, pos[2]+obs_size])
@@ -137,52 +91,93 @@ def main():
     plotter.camera_position = [
         (6.0, 4.0, 5.0), (1.0, 1.2, 1.2), (0.0, 0.0, 1.0)]
 
+    # --- 右侧视口: 尖端截面细节 ---
     plotter.subplot(0, 1)
     plotter.add_text("Tip Cross-section View (2D Control Plane)",
                      font_size=12, color="black")
 
-    gradient_segments = create_smooth_2d_gradient_band(
-        z_height=tip_pos[2], cat_radius=cat_radius)
-    for segment_mesh, color, opacity in gradient_segments:
-        plotter.add_mesh(segment_mesh, color=color,
-                         opacity=opacity, smooth_shading=True)
+    # 【方案 A 实现】：渐变尾迹体现连续体
+    # 截取最后一段导管（例如最后 20 个点）
+    tail_pts = smooth_pts[-25:]
+    # 将这些点转换到以 tip 为原点、tip_dir 为 Z 轴的局部坐标系中
+    # 这里为了演示，我们直接在 3D 空间中绘制，但将右侧相机对准它
 
-    tip_circle = pv.Disc(center=[0, 0, tip_pos[2]], inner=0,
-                         outer=cat_radius, normal=[0, 0, 1], c_res=50)
-    plotter.add_mesh(tip_circle, color="#333333", opacity=0.95)
+    # 创建尾迹线
+    tail_poly = pv.PolyData(tail_pts)
+    tail_lines = np.full((len(tail_pts) - 1, 3), 2, dtype=np.int_)
+    tail_lines[:, 1] = np.arange(len(tail_pts) - 1)
+    tail_lines[:, 2] = np.arange(1, len(tail_pts))
+    tail_poly.lines = tail_lines
 
+    # 为尾迹添加标量值（从末端 1.0 到尖端 0.0，用于透明度和颜色渐变）
+    scalars = np.linspace(0, 1, len(tail_pts))
+    tail_poly.point_data["intensity"] = scalars
+
+    # 生成带半径变化的管状体
+    # 尖端半径为 cat_radius，向后逐渐变细
+    tail_tube = tail_poly.tube(
+        radius=cat_radius, radius_factor=0.2, scalars="intensity")
+
+    # 添加渐变尾迹到右侧视口
+    # 使用从黑色到白色的 colormap，并开启透明度映射
+    plotter.add_mesh(tail_tube, scalars="intensity", cmap=["#333333", "white"],
+                     show_scalar_bar=False, opacity="linear", smooth_shading=True)
+
+    # 2. 探测范围
+    # 在尖端平面绘制探测圆
+    detection_range = pv.Circle(radius=cat_radius*4, resolution=50)
+    # 将圆平移到 tip_pos 并对齐 tip_dir
+    detection_range = detection_range.rotate_z(0)  # 占位
+    # 这里为了简单，我们直接在右侧视口使用 2D 逻辑，但为了体现 A 方案，我们调整相机
+
+    # 3. 规范化生成的障碍物 (在 tip 平面内生成)
     np.random.seed(42)
     for i in range(15):
         angle = np.random.uniform(0, 2*np.pi)
         dist = np.random.uniform(cat_radius*1.5, 0.28)
-        local_pos = [dist * np.cos(angle), dist * np.sin(angle), tip_pos[2]]
-        rand_val, base_r = np.random.rand(), np.random.uniform(0.015, 0.03)
+        # 在局部 XY 平面生成位置
+        local_pos = [dist * np.cos(angle), dist * np.sin(angle), 0]
+        # 将局部位置转换到世界坐标系（以 tip_pos 为中心，垂直于 tip_dir）
+        # 这里为了右侧视口的 view_xy，我们直接在 XY 平面绘制障碍物
+        world_pos = [local_pos[0] + tip_pos[0],
+                     local_pos[1] + tip_pos[1], tip_pos[2]]
+
+        rand_val = np.random.rand()
+        base_r = np.random.uniform(0.015, 0.03)
+
         if rand_val < 0.33:
-            obs_p = pv.Disc(center=local_pos, inner=0,
-                            outer=base_r, normal=[0, 0, 1], c_res=30)
+            obs_p = pv.Disc(center=[local_pos[0], local_pos[1], tip_pos[2]],
+                            inner=0, outer=base_r, normal=[0, 0, 1], c_res=30)
         elif rand_val < 0.66:
             w, h = np.random.uniform(0.01, 0.03, 2)
             obs_p = pv.Box(bounds=[local_pos[0]-w, local_pos[0]+w, local_pos[1] -
                            h, local_pos[1]+h, tip_pos[2]-0.001, tip_pos[2]+0.001])
         else:
-            obs_p = create_regular_polygon(local_pos, base_r, nsides=3)
+            obs_p = create_regular_polygon(
+                [local_pos[0], local_pos[1], tip_pos[2]], base_r, nsides=3)
+
         plotter.add_mesh(obs_p, color="red", opacity=0.8)
 
+    # 4. 探测范围圆 (在 tip_pos 平面)
     det_circle = pv.Circle(radius=cat_radius*4, resolution=50)
-    det_circle.points[:, 2] = tip_pos[2]
+    det_circle.points += [0, 0, tip_pos[2]]
     plotter.add_mesh(det_circle, color="green",
                      style="wireframe", line_width=1.5)
 
+    # 5. 浅灰色边框
     roi_border = pv.Box(
         bounds=[-0.3, 0.3, -0.3, 0.3, tip_pos[2]-0.001, tip_pos[2]+0.001])
     plotter.add_mesh(roi_border, color="lightgray",
                      style="wireframe", line_width=2)
 
-    plotter.camera.position = [0, 0, tip_pos[2] + 1.0]
-    plotter.camera.focal_point = [0, 0, tip_pos[2]]
+    # 设置右侧相机：对准尖端，沿着导管方向看去
+    # 相机位置在尖端前方一点，看向尖端，这样就能看到向后延伸的尾迹
+    plotter.camera.position = [tip_pos[0], tip_pos[1], tip_pos[2] + 1.0]
+    plotter.camera.focal_point = [tip_pos[0], tip_pos[1], tip_pos[2]]
     plotter.camera.up = [0, 1, 0]
     plotter.enable_parallel_projection()
     plotter.reset_camera()
+
     plotter.show()
 
 
