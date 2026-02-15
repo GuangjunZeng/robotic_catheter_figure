@@ -2,7 +2,8 @@ import pyvista as pv
 import numpy as np
 from scipy.interpolate import make_interp_spline
 
-# 
+# python catheter_figure1.py
+
 
 def create_catheter_model(points, radius=0.02):
     """
@@ -61,32 +62,48 @@ def main():
         [1.2, 1.8, 2.0],
         [2.0, 2.2, 2.5]
     ])
-    catheter = create_catheter_model(catheter_points, radius=0.04)
+    cat_radius = 0.04
+    catheter = create_catheter_model(catheter_points, radius=cat_radius)
 
-    # 添加导管到场景，设置颜色和材质
-    plotter.add_mesh(catheter, color="red", smooth_shading=True,
+    # 添加导管到场景，设置颜色为黑灰色
+    plotter.add_mesh(catheter, color="#333333", smooth_shading=True,
                      label="Robotic Catheter", specular=0.5)
 
-    # 3. 创建多个不规则障碍物
+    # 3. 创建多个红色障碍物 (尺寸约为导管半径的2-3倍)
+    obs_size = cat_radius * 2.5
+
+    # 3.1 不规则形状障碍物
     obstacles_data = [
-        {"center": [0.8, 0.5, 1.0], "size": 0.3,
-            "color": "lightgray", "seed": 42},
-        {"center": [1.5, 2.5, 1.8], "size": 0.4,
-            "color": "darkgray", "seed": 123},
-        {"center": [0.2, 1.8, 1.2], "size": 0.25, "color": "gray", "seed": 7},
-        {"center": [1.8, 1.0, 2.2], "size": 0.35,
-            "color": "silver", "seed": 99},
+        {"center": [0.6, 0.6, 1.0], "seed": 42},
+        {"center": [1.4, 2.0, 1.8], "seed": 123},
+        {"center": [0.3, 1.5, 1.2], "seed": 7},
+        {"center": [1.8, 1.2, 2.2], "seed": 99},
+        {"center": [1.0, 1.0, 1.4], "seed": 55},
     ]
 
     for obs in obstacles_data:
         mesh = create_irregular_obstacle(
-            obs["center"], size=obs["size"], seed=obs["seed"])
-        plotter.add_mesh(
-            mesh, color=obs["color"], opacity=0.8, smooth_shading=True, specular=0.2)
+            obs["center"], size=obs_size, seed=obs["seed"])
+        plotter.add_mesh(mesh, color="red", opacity=0.9,
+                         smooth_shading=True, specular=0.3)
+
+    # 3.2 增加其他形状：长方体 (模拟窄道或墙壁)
+    box = pv.Box(bounds=[0.8, 1.2, 1.6, 1.7, 1.4, 2.2])
+    plotter.add_mesh(box, color="red", opacity=0.7, smooth_shading=True)
+
+    # 3.3 增加其他形状：小球体
+    small_sphere = pv.Sphere(radius=obs_size*0.8, center=[1.6, 1.8, 2.4])
+    plotter.add_mesh(small_sphere, color="red",
+                     opacity=0.9, smooth_shading=True)
+
+    # 3.4 增加一个圆柱体
+    cylinder = pv.Cylinder(center=[0.5, 0.8, 0.5], direction=[
+                           1, 1, 0], radius=obs_size, height=0.4)
+    plotter.add_mesh(cylinder, color="red", opacity=0.8, smooth_shading=True)
 
     # 4. 设置视角和辅助元素
     # 添加坐标轴
-    plotter.add_axes(label_size=0.05)
+    plotter.add_axes()
 
     # 设置一个好的初始视角
     plotter.camera_position = [
