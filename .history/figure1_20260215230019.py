@@ -41,7 +41,6 @@ def create_regular_polygon(center, radius, nsides=3):
 def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
     """
     在纯 2D 平面上创建平滑的连续渐变带
-    从黑色圆的边界出发，向上延伸，逐渐变窄、变浅、变透明
     """
     n_segments = 60
     segment_list = []
@@ -51,13 +50,10 @@ def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
         t_end = (seg_idx + 1) / n_segments
         t_params = np.linspace(t_start, t_end, 15)
 
-        # 中心线：起点在 (0, 0)，即圆心
-        # 宽度从 cat_radius 开始，这样左右边界就是 [-cat_radius, cat_radius]，与圆相切
         centerline_x = 0.0 - 0.06 * t_params * np.sin(np.pi * t_params)
         centerline_y = 0.30 * t_params
         centerline_z = np.full_like(t_params, z_height)
 
-        # 宽度：从 cat_radius 缓慢变窄
         widths = cat_radius * (1 - t_params ** 1.5)
 
         segment_points = []
@@ -112,6 +108,7 @@ def main():
     sphere_pos = [[1.6, 1.8, 2.4], [1.2, 0.8, 1.8]]
     cyl_pos = [{"center": [2.2, 1.5, 2.0], "dir": [0, 0, 1]}]
 
+    # --- 左侧视口 ---
     plotter.subplot(0, 0)
     plotter.add_text("Global Workspace", font_size=12, color="black")
     plotter.add_mesh(catheter_mesh, color="#333333",
@@ -137,50 +134,56 @@ def main():
     plotter.camera_position = [
         (6.0, 4.0, 5.0), (1.0, 1.2, 1.2), (0.0, 0.0, 1.0)]
 
+    # --- 右侧视口 (方案 C：不透明顶层) ---
     plotter.subplot(0, 1)
     plotter.add_text("Tip Cross-section View (2D Control Plane)",
                      font_size=12, color="black")
 
+    # 1. 渐变带 (底层)
     gradient_segments = create_smooth_2d_gradient_band(
         z_height=tip_pos[2], cat_radius=cat_radius)
     for segment_mesh, color, opacity in gradient_segments:
         plotter.add_mesh(segment_mesh, color=color,
                          opacity=opacity, smooth_shading=True)
 
-    tip_circle = pv.Disc(center=[0, 0, tip_pos[2]], inner=0,
-                         outer=cat_radius, normal=[0, 0, 1], c_res=50)
-    plotter.add_mesh(tip_circle, color="#333333", opacity=1.0)
-
-    # 【修改位置 3】右侧截面图障碍物的大小、位置和类型 (增加数量，减小尺寸，确保不重叠)
+    # 2. 障碍物 (中层) - 增加数量，减小尺寸，确保不重叠
     np.random.seed(42)
-    for i in range(30):  # 增加数量到 30 个
+    num_obstacles = 25  # 增加到 25 个
+    for i in range(num_obstacles):
+        # 减小基础尺寸范围
+        base_r = np.random.uniform(0.008, 0.018)
+
+        # 随机生成位置，并确保不与中心圆 (半径为 cat_radius) 重叠
+        # dist 必须大于 cat_radius + base_r
         angle = np.random.uniform(0, 2*np.pi)
-        # 确保最小距离大于 cat_radius + 最大障碍物半径 + 缓冲
-        # cat_radius=0.04, max_base_r=0.018, min_dist = 0.04 + 0.018 + 0.01 = 0.068
-        dist = np.random.uniform(0.07, 0.28)
-        local_pos = [dist * np.cos(angle), dist * np.sin(angle), tip_pos[2]]
+        min_dist = cat_radius + base_r + 0.005  # 额外增加一点安全间隙
+        dist = np.random.uniform(min_dist, 0.28)
+
+        local_pos = [dist * np.cos(angle), dist *
+                     np.sin(angle), tip_pos[2] + 0.001]
 
         rand_val = np.random.rand()
-        base_r = np.random.uniform(0.008, 0.018)  # 减小尺寸
-
         if rand_val < 0.33:
             obs_p = pv.Disc(center=local_pos, inner=0,
                             outer=base_r, normal=[0, 0, 1], c_res=30)
         elif rand_val < 0.66:
-            ratio = np.random.uniform(0.7, 1.3)
-            w = base_r
-            h = base_r * ratio
-            obs_p = pv.Box(bounds=[local_pos[0]-w, local_pos[0]+w, local_pos[1] -
-                           h, local_pos[1]+h, tip_pos[2]-0.001, tip_pos[2]+0.001])
+            w, h = base_r, base_r * np.random.uniform(0.7, 1.3)
+            obs_p = pv.Box(bounds=[local_pos[0]-w, local_pos[0]+w, local_pos[1]-h,
+                           local_pos[1]+h, local_pos[2]-0.0005, local_pos[2]+0.0005])
         else:
             obs_p = create_regular_polygon(local_pos, base_r, nsides=3)
-
         plotter.add_mesh(obs_p, color="red", opacity=0.8)
 
+    # 3. 探测范围圆
     det_circle = pv.Circle(radius=cat_radius*4, resolution=50)
-    det_circle.points[:, 2] = tip_pos[2]
+    det_circle.points[:, 2] = tip_pos[2] + 0.001
     plotter.add_mesh(det_circle, color="green",
                      style="wireframe", line_width=1.5)
+
+    # 4. 黑色圆盘 (顶层，方案 C：完全不透明)
+    tip_circle = pv.Disc(center=[0, 0, tip_pos[2] + 0.002],
+                         inner=0, outer=cat_radius, normal=[0, 0, 1], c_res=50)
+    plotter.add_mesh(tip_circle, color="#333333", opacity=1.0)
 
     roi_border = pv.Box(
         bounds=[-0.3, 0.3, -0.3, 0.3, tip_pos[2]-0.001, tip_pos[2]+0.001])

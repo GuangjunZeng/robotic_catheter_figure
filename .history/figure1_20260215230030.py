@@ -151,30 +151,21 @@ def main():
                          outer=cat_radius, normal=[0, 0, 1], c_res=50)
     plotter.add_mesh(tip_circle, color="#333333", opacity=1.0)
 
-    # 【修改位置 3】右侧截面图障碍物的大小、位置和类型 (增加数量，减小尺寸，确保不重叠)
     np.random.seed(42)
-    for i in range(30):  # 增加数量到 30 个
+    for i in range(15):
         angle = np.random.uniform(0, 2*np.pi)
-        # 确保最小距离大于 cat_radius + 最大障碍物半径 + 缓冲
-        # cat_radius=0.04, max_base_r=0.018, min_dist = 0.04 + 0.018 + 0.01 = 0.068
-        dist = np.random.uniform(0.07, 0.28)
+        dist = np.random.uniform(cat_radius*1.5, 0.28)
         local_pos = [dist * np.cos(angle), dist * np.sin(angle), tip_pos[2]]
-
-        rand_val = np.random.rand()
-        base_r = np.random.uniform(0.008, 0.018)  # 减小尺寸
-
+        rand_val, base_r = np.random.rand(), np.random.uniform(0.015, 0.03)
         if rand_val < 0.33:
             obs_p = pv.Disc(center=local_pos, inner=0,
                             outer=base_r, normal=[0, 0, 1], c_res=30)
         elif rand_val < 0.66:
-            ratio = np.random.uniform(0.7, 1.3)
-            w = base_r
-            h = base_r * ratio
+            w, h = np.random.uniform(0.01, 0.03, 2)
             obs_p = pv.Box(bounds=[local_pos[0]-w, local_pos[0]+w, local_pos[1] -
                            h, local_pos[1]+h, tip_pos[2]-0.001, tip_pos[2]+0.001])
         else:
             obs_p = create_regular_polygon(local_pos, base_r, nsides=3)
-
         plotter.add_mesh(obs_p, color="red", opacity=0.8)
 
     det_circle = pv.Circle(radius=cat_radius*4, resolution=50)
