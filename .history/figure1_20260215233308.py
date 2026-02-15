@@ -119,10 +119,9 @@ def main():
         b = pv.Box(bounds=[pos[0]-obs_size, pos[0]+obs_size, pos[1] -
                    obs_size, pos[1]+obs_size, pos[2]-obs_size, pos[2]+obs_size])
         plotter.add_mesh(b, color="red", opacity=0.8)
-        # 增加运动矢量：减小 scale，并调整 tip_radius 和 shaft_radius 使其更纤细
+        # 增加运动矢量
         direction = [0.2, -0.1, 0.1] if i == 0 else [-0.1, 0.2, -0.1]
-        arrow = pv.Arrow(start=pos, direction=direction, scale=0.25,
-                         tip_radius=0.1, shaft_radius=0.04)
+        arrow = pv.Arrow(start=pos, direction=direction, scale=0.5)
         plotter.add_mesh(arrow, color="orange")
 
     for i, pos in enumerate(sphere_pos):
@@ -130,8 +129,7 @@ def main():
         plotter.add_mesh(s, color="red", opacity=0.8)
         # 增加运动矢量
         direction = [-0.1, -0.2, 0.1] if i == 0 else [0.2, 0.1, -0.1]
-        arrow = pv.Arrow(start=pos, direction=direction, scale=0.25,
-                         tip_radius=0.1, shaft_radius=0.04)
+        arrow = pv.Arrow(start=pos, direction=direction, scale=0.5)
         plotter.add_mesh(arrow, color="orange")
 
     for c in cyl_pos:
@@ -139,8 +137,8 @@ def main():
                          radius=obs_size*0.7, height=obs_size*3)
         plotter.add_mesh(cy, color="red", opacity=0.8)
         # 增加运动矢量
-        arrow = pv.Arrow(start=c["center"], direction=[0.1, 0.2, 0.1], scale=0.25,
-                         tip_radius=0.1, shaft_radius=0.04)
+        arrow = pv.Arrow(start=c["center"], direction=[
+                         0.1, 0.2, 0.1], scale=0.5)
         plotter.add_mesh(arrow, color="orange")
 
     roi_plane = pv.Plane(center=tip_pos, direction=tip_dir,
