@@ -22,24 +22,6 @@ def create_catheter_model(points, radius=0.02):
     return tube, smooth_points
 
 
-def create_regular_polygon(center, radius, nsides=3):
-    """
-    创建一个带随机扰动的正多边形，避免出现过细的形状
-    """
-    angles = np.linspace(0, 2*np.pi, nsides, endpoint=False)
-    # 添加随机旋转
-    angles += np.random.uniform(0, 2*np.pi)
-    # 顶点位置：基础半径 + 随机扰动 (20% 范围内)
-    r = radius * (1 + (np.random.rand(nsides) - 0.5) * 0.4)
-    pts = np.zeros((nsides, 3))
-    pts[:, 0] = center[0] + r * np.cos(angles)
-    pts[:, 1] = center[1] + r * np.sin(angles)
-    pts[:, 2] = center[2]
-
-    faces = np.array([nsides] + list(range(nsides)))
-    return pv.PolyData(pts, faces)
-
-
 def main():
     # 1. 创建双视口绘图器 (1行2列)
     plotter = pv.Plotter(shape=(1, 2), window_size=[1600, 800])
@@ -56,13 +38,15 @@ def main():
     cat_radius = 0.04
     catheter_mesh, smooth_pts = create_catheter_model(
         catheter_points, radius=cat_radius)
-    tip_pos = smooth_pts[-1]
-    tip_dir = (smooth_pts[-1] - smooth_pts[-10]) / \
-        np.linalg.norm(smooth_pts[-1] - smooth_pts[-10])
+    tip_pos = smooth_pts[-1]  # 尖端位置
+    # 计算尖端切向向量作为截面法向量
+    tip_dir = smooth_pts[-1] - smooth_pts[-10]
+    tip_dir = tip_dir / np.linalg.norm(tip_dir)
 
+    # 【修改位置 1】左侧 3D 障碍物的基础尺寸
     obs_size = cat_radius * 2.5
 
-    # 左侧 3D 障碍物位置
+    # 【修改位置 2】左侧 3D 障碍物的位置定义
     box_pos = [[0.6, 0.6, 1.0], [1.4, 2.0, 1.8]]
     sphere_pos = [[1.6, 1.8, 2.4], [1.2, 0.8, 1.8]]
     cyl_pos = [{"center": [2.2, 1.5, 2.0], "dir": [0, 0, 1]}]
@@ -70,9 +54,12 @@ def main():
     # --- 左侧视口: 3D 全景 ---
     plotter.subplot(0, 0)
     plotter.add_text("Global Workspace", font_size=12, color="black")
+
+    # 添加导管
     plotter.add_mesh(catheter_mesh, color="#333333",
                      smooth_shading=True, specular=0.5)
 
+    # 添加障碍物
     for pos in box_pos:
         b = pv.Box(bounds=[pos[0]-obs_size, pos[0]+obs_size, pos[1] -
                    obs_size, pos[1]+obs_size, pos[2]-obs_size, pos[2]+obs_size])
@@ -85,11 +72,13 @@ def main():
                          radius=obs_size*0.7, height=obs_size*3)
         plotter.add_mesh(cy, color="red", opacity=0.8)
 
+    # 在尖端添加浅灰色虚线矩形框 (ROI)，表示截面平面
     roi_plane = pv.Plane(center=tip_pos, direction=tip_dir,
                          i_size=0.6, j_size=0.6)
     plotter.add_mesh(roi_plane, color="lightgray",
                      style="wireframe", line_width=1, opacity=0.5)
     plotter.add_mesh(roi_plane, color="lightgray", opacity=0.05)
+
     plotter.add_axes()
     plotter.camera_position = [
         (6.0, 4.0, 5.0), (1.0, 1.2, 1.2), (0.0, 0.0, 1.0)]
@@ -99,50 +88,47 @@ def main():
     plotter.add_text("Tip Cross-section View (2D Control Plane)",
                      font_size=12, color="black")
 
-    # 1. 导管截面
+    # 1. 导管截面 (增加 c_res 确保它是圆的)
     tip_circle = pv.Disc(center=[0, 0, 0], inner=0,
                          outer=cat_radius, normal=[0, 0, 1], c_res=50)
     plotter.add_mesh(tip_circle, color="#333333")
 
-    # 2. 探测范围
-    detection_range = pv.Circle(radius=cat_radius*4, resolution=50)
+    # 2. 探测范围 (增加 n_points 确保它是圆的)
+    detection_range = pv.Circle(radius=cat_radius*4, n_points=50)
     plotter.add_mesh(detection_range, color="green",
                      style="wireframe", line_width=1.5)
 
-    # 3. 规范化生成的障碍物
+    # 【修改位置 3】右侧截面图障碍物的大小和位置
     np.random.seed(42)
-    for i in range(15):
+    for i in range(10):
         angle = np.random.uniform(0, 2*np.pi)
         dist = np.random.uniform(cat_radius*1.5, 0.28)
         pos = [dist * np.cos(angle), dist * np.sin(angle), 0]
 
-        rand_val = np.random.rand()
-        base_r = np.random.uniform(0.015, 0.03)  # 统一基础尺寸
-
-        if rand_val < 0.33:
-            # 类型1: 圆形
-            obs_p = pv.Disc(center=pos, inner=0, outer=base_r,
-                            normal=[0, 0, 1], c_res=30)
-        elif rand_val < 0.66:
-            # 类型2: 矩形 (长宽比控制在 0.5-2.0 之间)
-            ratio = np.random.uniform(0.7, 1.3)
-            w = base_r
-            h = base_r * ratio
+        if np.random.rand() > 0.4:
+            # 圆形障碍物投影 (增加 c_res 确保平滑)
+            obs_p = pv.Disc(center=pos, inner=0, outer=np.random.uniform(
+                0.015, 0.035), normal=[0, 0, 1], c_res=30)
+        else:
+            # 矩形障碍物投影
+            w, h = np.random.uniform(0.015, 0.04, 2)
             obs_p = pv.Box(bounds=[pos[0]-w, pos[0]+w,
                            pos[1]-h, pos[1]+h, -0.001, 0.001])
-        else:
-            # 类型3: 规范化三角形 (基于正多边形扰动)
-            obs_p = create_regular_polygon(pos, base_r, nsides=3)
 
         plotter.add_mesh(obs_p, color="red", opacity=0.8)
 
+    # 4. 标注浅灰色边框 (对应左图的 ROI)
     roi_border = pv.Box(bounds=[-0.3, 0.3, -0.3, 0.3, -0.001, 0.001])
     plotter.add_mesh(roi_border, color="lightgray",
                      style="wireframe", line_width=2)
 
+    # 设置右侧视口为正交俯视图
     plotter.view_xy()
     plotter.enable_parallel_projection()
     plotter.reset_camera()
+
+    # --- 打印提示并显示 ---
+    print("正在打开双视口可视化窗口...")
     plotter.show()
 
 
