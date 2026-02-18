@@ -31,10 +31,8 @@ def create_regular_polygon(center, radius, nsides=3):
     return pv.PolyData(pts, faces)
 
 
-BAND_LENGTH = 0.30    # 渐变带总长度（X 方向）
-BAND_END_K = 0.45     # 末端宽度系数：末端宽度 = cat_radius * BAND_END_K
-BAND_END_COLOR = 238  # 渐变带末端颜色灰度值 (#EEEEEE)
-BAND_END_OPACITY = 0.12  # 渐变带末端透明度
+BAND_LENGTH = 0.30   # 渐变带总长度（X 方向）
+BAND_END_K = 0.45    # 末端宽度系数：末端宽度 = cat_radius * BAND_END_K
 
 
 def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
@@ -100,8 +98,8 @@ def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
 
         color = f"#{r_val:02x}{r_val:02x}{r_val:02x}"
 
-        # 透明度：末端保留 BAND_END_OPACITY，不完全消失
-        opacity = max(0.92 * (1 - progress ** 0.7), BAND_END_OPACITY)
+        # 透明度：末端保留最低可见度，不完全消失
+        opacity = max(0.92 * (1 - progress ** 0.7), 0.12)
         segment_list.append((segment_mesh, color, opacity))
 
     return segment_list
@@ -109,27 +107,26 @@ def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
 
 def create_perspective_ellipse(z_height=0, cat_radius=0.04):
     """
-    椭圆区域：从渐变带末端状态无缝延续，向外继续淡出至透明。
-
-    衔接原则：
-    - 最内层 (progress=0)：Y半轴 = cat_radius*BAND_END_K，颜色 = BAND_END_COLOR，
-      透明度 = BAND_END_OPACITY，与渐变带末端完全一致，无跳变
-    - 向外 (progress→1)：颜色继续变浅 (#EEEEEE → #F8F8F8)，透明度继续降低至 0
-    - X 半轴比 Y 半轴窄（模拟透视压缩），比例约 0.6
-    - 最外层加一条极淡的轮廓线，暗示"这是一个椭圆形截面"
+    椭圆区域：模拟管道从远处延伸的透视截面。
+    - 中心位于渐变带末端（x = -BAND_LENGTH）
+    - Y 半轴最内层 = cat_radius * BAND_END_K，与渐变带末端宽度完全匹配
+    - 向外逐渐扩大并淡出
+    - 颜色从渐变带末端颜色（#EEEEEE）向内加深到 #AAAAAA
+    - 最外层加一条轮廓线，明确椭圆边界
     """
     segment_list = []
-    n_layers = 30
+    n_layers = 25
 
+    # 椭圆中心：渐变带末端 X 位置
     center_x = -BAND_LENGTH
 
-    # 内层参数：与渐变带末端完全对齐
+    # 最内层 Y 半轴 = 渐变带末端宽度，确保几何衔接
     b_inner = cat_radius * BAND_END_K
-    a_inner = b_inner * 0.6  # 透视压缩
-
-    # 外层参数：椭圆向外扩展约 2.8 倍
-    b_outer = b_inner * 2.8
-    a_outer = a_inner * 2.8
+    # 最外层 Y 半轴（椭圆向外扩展到约 2.5 倍）
+    b_outer = cat_radius * BAND_END_K * 2.5
+    # X 半轴（透视压缩，比 Y 轴窄）
+    a_inner = cat_radius * BAND_END_K * 0.5
+    a_outer = cat_radius * BAND_END_K * 1.8
 
     n_pts = 80
     angles = np.linspace(0, 2 * np.pi, n_pts, endpoint=False)
@@ -166,27 +163,26 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
 
         ring_mesh = pv.PolyData(all_pts, np.array(faces))
 
-        # 颜色：从渐变带末端颜色 (#EEEEEE) 继续变浅到 #F8F8F8
-        r_val = int(BAND_END_COLOR + (248 - BAND_END_COLOR) * progress)
+        # 颜色：内层 #AAAAAA（与渐变带末端深色衔接），外层 #EEEEEE（淡出）
+        r_val = int(170 + (238 - 170) * progress)
         color = f"#{r_val:02x}{r_val:02x}{r_val:02x}"
-
-        # 透明度：从渐变带末端透明度连续降低到 0
-        opacity = BAND_END_OPACITY * (1 - progress ** 0.6)
+        # 透明度：内层较高（0.50），外层保留最低可见度（0.10）
+        opacity = max(0.50 * (1 - progress ** 0.5), 0.10)
         segment_list.append((ring_mesh, color, opacity))
 
-    # 最外层轮廓线：极淡的中灰色，暗示椭圆边界但不突兀
+    # 最外层轮廓线：深灰色细线，明确椭圆边界
     outline_pts = np.zeros((n_pts + 1, 3))
     outline_pts[:n_pts, 0] = center_x + a_outer * np.cos(angles)
     outline_pts[:n_pts, 1] = b_outer * np.sin(angles)
     outline_pts[:n_pts, 2] = z_height + 0.0001
-    outline_pts[n_pts] = outline_pts[0]
+    outline_pts[n_pts] = outline_pts[0]  # 闭合
 
     outline_poly = pv.PolyData(outline_pts)
     outline_lines = np.full((n_pts, 3), 2, dtype=np.int_)
     outline_lines[:, 1] = np.arange(n_pts)
     outline_lines[:, 2] = np.arange(1, n_pts + 1)
     outline_poly.lines = outline_lines
-    segment_list.append((outline_poly, "#BBBBBB", 0.35))
+    segment_list.append((outline_poly, "#999999", 0.6))
 
     return segment_list
 
@@ -294,7 +290,7 @@ def main():
     # 注意：set_background 在多视口下是全局的，用实心底板模拟蓝灰色背景
     bg_plane = pv.Plane(center=[0, 0, tip_pos[2] - 0.01],
                         direction=[0, 0, 1], i_size=1.2, j_size=1.2)
-    plotter.add_mesh(bg_plane, color="#EEF1F7", opacity=1.0)
+    plotter.add_mesh(bg_plane, color="#DDE3ED", opacity=1.0)
     plotter.add_text("Tip Cross-section View (2D Control Plane)",
                      font_size=12, color="black")
 
