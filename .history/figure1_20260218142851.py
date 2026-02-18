@@ -109,11 +109,9 @@ def main():
     obs_size = cat_radius * 1.8  # 减小尺寸，从 2.5 降到 1.8
     # 障碍物位置定义
     box_pos = [[0.6, 0.6, 1.0], [1.4, 2.0, 1.8]]
-    # 将第二个球体从 [1.2, 0.8] 移到 [1.1, 0.6]
-    sphere_pos = [[1.6, 1.8, 2.4], [1.1, 0.6, 1.8]]
-    # 四面体位置
-    # 将第二个四面体从 [0.8, 1.8] 移到 [0.8, 1.9]
-    tetra_pos = [[2.2, 1.5, 2.0], [0.8, 1.9, 2.2]]
+    sphere_pos = [[1.6, 1.8, 2.4], [1.2, 0.8, 1.8]]
+    # 新增：四面体位置
+    tetra_pos = [[2.2, 1.5, 2.0], [0.8, 1.8, 2.2]]
 
     plotter.subplot(0, 0)
     plotter.add_text("Global Workspace", font_size=12, color="black")
@@ -150,11 +148,9 @@ def main():
 
     # 2. 圆形障碍物 (Spheres)
     for i, pos in enumerate(sphere_pos):
-        # 降低分辨率 (phi/theta_resolution)，使线框稀疏，体现空心感
-        s = pv.Sphere(radius=obs_size, center=pos,
-                      phi_resolution=10, theta_resolution=10)
+        s = pv.Sphere(radius=obs_size, center=pos)
         plotter.add_mesh(s, color="red", style="wireframe",
-                         line_width=0.8, opacity=0.6)
+                         line_width=1, opacity=0.8)
         direction = [-0.1, -0.2, 0.1] if i == 0 else [0.2, 0.1, -0.1]
         add_elegant_velocity(plotter, pos, direction)
 
@@ -169,10 +165,10 @@ def main():
             [pos[0] + s, pos[1] - s, pos[2] - s]
         ])
         faces = np.array([
-            3, 0, 1, 2,
-            3, 0, 1, 3,
-            3, 0, 2, 3,
-            3, 1, 2, 3
+            4, 0, 1, 2,
+            4, 0, 1, 3,
+            4, 0, 2, 3,
+            4, 1, 2, 3
         ])
         tetra = pv.PolyData(pts, faces)
         plotter.add_mesh(tetra, color="red", style="wireframe",

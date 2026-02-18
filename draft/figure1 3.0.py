@@ -106,79 +106,42 @@ def main():
     tip_dir = (smooth_pts[-1] - smooth_pts[-10]) / \
         np.linalg.norm(smooth_pts[-1] - smooth_pts[-10])
 
-    obs_size = cat_radius * 1.8  # 减小尺寸，从 2.5 降到 1.8
-    # 障碍物位置定义
+    obs_size = cat_radius * 2.5
     box_pos = [[0.6, 0.6, 1.0], [1.4, 2.0, 1.8]]
-    # 将第二个球体从 [1.2, 0.8] 移到 [1.1, 0.6]
-    sphere_pos = [[1.6, 1.8, 2.4], [1.1, 0.6, 1.8]]
-    # 四面体位置
-    # 将第二个四面体从 [0.8, 1.8] 移到 [0.8, 1.9]
-    tetra_pos = [[2.2, 1.5, 2.0], [0.8, 1.9, 2.2]]
+    sphere_pos = [[1.6, 1.8, 2.4], [1.2, 0.8, 1.8]]
+    cyl_pos = [{"center": [2.2, 1.5, 2.0], "dir": [0, 0, 1]}]
 
     plotter.subplot(0, 0)
     plotter.add_text("Global Workspace", font_size=12, color="black")
     plotter.add_mesh(catheter_mesh, color="#333333",
                      smooth_shading=True, specular=0.5)
-
-    # 辅助函数：绘制精致的运动矢量（细线 + 粉色箭头）
-    def add_elegant_velocity(plotter, center, direction, size=0.15):
-        direction = np.array(direction)
-        direction = direction / np.linalg.norm(direction)
-
-        # 1. 稍微远离障碍物的起点
-        gap = obs_size * 1.3
-        start_pt = np.array(center) + direction * gap
-        end_pt = start_pt + direction * size
-
-        # 2. 绘制一根细线
-        line = pv.Line(start_pt, end_pt)
-        plotter.add_mesh(line, color="hotpink", line_width=2)
-
-        # 3. 在末端放一个非常小的锥体作为箭头
-        cone = pv.Cone(center=end_pt, direction=direction,
-                       height=size*0.4, radius=size*0.12, resolution=20)
-        plotter.add_mesh(cone, color="hotpink")
-
-    # 1. 矩形障碍物 (Boxes)
     for i, pos in enumerate(box_pos):
         b = pv.Box(bounds=[pos[0]-obs_size, pos[0]+obs_size, pos[1] -
                    obs_size, pos[1]+obs_size, pos[2]-obs_size, pos[2]+obs_size])
-        plotter.add_mesh(b, color="red", style="wireframe",
-                         line_width=1, opacity=0.8)
+        plotter.add_mesh(b, color="red", opacity=0.8)
+        # 增加运动矢量：减小 scale，并调整 tip_radius 和 shaft_radius 使其更纤细
         direction = [0.2, -0.1, 0.1] if i == 0 else [-0.1, 0.2, -0.1]
-        add_elegant_velocity(plotter, pos, direction)
+        arrow = pv.Arrow(start=pos, direction=direction, scale=0.25,
+                         tip_radius=0.1, shaft_radius=0.04)
+        plotter.add_mesh(arrow, color="orange")
 
-    # 2. 圆形障碍物 (Spheres)
     for i, pos in enumerate(sphere_pos):
-        # 降低分辨率 (phi/theta_resolution)，使线框稀疏，体现空心感
-        s = pv.Sphere(radius=obs_size, center=pos,
-                      phi_resolution=10, theta_resolution=10)
-        plotter.add_mesh(s, color="red", style="wireframe",
-                         line_width=0.8, opacity=0.6)
+        s = pv.Sphere(radius=obs_size, center=pos)
+        plotter.add_mesh(s, color="red", opacity=0.8)
+        # 增加运动矢量
         direction = [-0.1, -0.2, 0.1] if i == 0 else [0.2, 0.1, -0.1]
-        add_elegant_velocity(plotter, pos, direction)
+        arrow = pv.Arrow(start=pos, direction=direction, scale=0.25,
+                         tip_radius=0.1, shaft_radius=0.04)
+        plotter.add_mesh(arrow, color="orange")
 
-    # 3. 三角形障碍物 (Tetrahedrons)
-    for i, pos in enumerate(tetra_pos):
-        # 创建一个正四面体 (Tetrahedron)
-        s = obs_size * 1.2
-        pts = np.array([
-            [pos[0] + s, pos[1] + s, pos[2] + s],
-            [pos[0] - s, pos[1] - s, pos[2] + s],
-            [pos[0] - s, pos[1] + s, pos[2] - s],
-            [pos[0] + s, pos[1] - s, pos[2] - s]
-        ])
-        faces = np.array([
-            3, 0, 1, 2,
-            3, 0, 1, 3,
-            3, 0, 2, 3,
-            3, 1, 2, 3
-        ])
-        tetra = pv.PolyData(pts, faces)
-        plotter.add_mesh(tetra, color="red", style="wireframe",
-                         line_width=1, opacity=0.8)
-        direction = [0.1, 0.2, 0.1] if i == 0 else [-0.2, -0.1, 0.2]
-        add_elegant_velocity(plotter, pos, direction)
+    for c in cyl_pos:
+        cy = pv.Cylinder(center=c["center"], direction=c["dir"],
+                         radius=obs_size*0.7, height=obs_size*3)
+        plotter.add_mesh(cy, color="red", opacity=0.8)
+        # 增加运动矢量
+        arrow = pv.Arrow(start=c["center"], direction=[0.1, 0.2, 0.1], scale=0.25,
+                         tip_radius=0.1, shaft_radius=0.04)
+        plotter.add_mesh(arrow, color="orange")
 
     roi_plane = pv.Plane(center=tip_pos, direction=tip_dir,
                          i_size=0.6, j_size=0.6)

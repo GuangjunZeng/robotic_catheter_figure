@@ -150,11 +150,9 @@ def main():
 
     # 2. 圆形障碍物 (Spheres)
     for i, pos in enumerate(sphere_pos):
-        # 降低分辨率 (phi/theta_resolution)，使线框稀疏，体现空心感
-        s = pv.Sphere(radius=obs_size, center=pos,
-                      phi_resolution=10, theta_resolution=10)
+        s = pv.Sphere(radius=obs_size, center=pos)
         plotter.add_mesh(s, color="red", style="wireframe",
-                         line_width=0.8, opacity=0.6)
+                         line_width=1, opacity=0.8)
         direction = [-0.1, -0.2, 0.1] if i == 0 else [0.2, 0.1, -0.1]
         add_elegant_velocity(plotter, pos, direction)
 
