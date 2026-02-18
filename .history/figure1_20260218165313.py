@@ -203,43 +203,27 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
 
 def create_catheter_cross_section(z_height=0, cat_radius=0.04):
     """
-    创建具有径向渐变的导管截面：
-    - 中心颜色：#505050（中深灰，不再死黑）
-    - 外边缘颜色：#222222（与渐变带起始颜色完全一致，衔接无跳变）
-    - 渐变速度极慢（用 progress^3 使颜色在大部分区域保持接近中心色，
-      只在最外层才快速收敛到边缘色），以示与渐变带的区分
-    - 多层同心圆环实现径向渐变
+    创建具有三维感的导管截面：
+    - 外圆环（管壁）
+    - 内腔圆盘（渐变填充）
+    - 高光弧（优化：改为渐变的弧形，而不是突兀的白色线条）
     """
     meshes = []
-    n_rings = 40  # 圆环层数，越多渐变越平滑
 
-    # 中心色灰度（较浅，不再死黑）
-    center_gray = 80   # #505050
-    # 外边缘色灰度：与渐变带起始颜色对齐
-    edge_gray = 34     # #222222
+    # 1. 内腔填充：中深灰色圆盘
+    inner_disc = pv.Disc(center=[0, 0, z_height], inner=0,
+                         outer=cat_radius * 0.6, normal=[0, 0, 1], c_res=80)
+    meshes.append((inner_disc, "#4A4A4A", 1.0))
 
-    for ring_idx in range(n_rings):
-        # progress 从 0（中心）到 1（外边缘）
-        progress = ring_idx / n_rings
-        next_progress = (ring_idx + 1) / n_rings
+    # 2. 管壁圆环：深灰色环（提高亮度以匹配渐变带起始感）
+    wall_ring = pv.Disc(center=[0, 0, z_height], inner=cat_radius * 0.6,
+                        outer=cat_radius, normal=[0, 0, 1], c_res=80)
+    meshes.append((wall_ring, "#383838", 1.0))
 
-        inner_r = cat_radius * progress
-        outer_r = cat_radius * next_progress
-
-        # 颜色：用 progress^3 使渐变极慢，外层才快速变深
-        # 中心 #505050 → 外边缘 #222222
-        ease = progress ** 3
-        r_val = int(center_gray + (edge_gray - center_gray) * ease)
-        color = f"#{r_val:02x}{r_val:02x}{r_val:02x}"
-
-        ring = pv.Disc(center=[0, 0, z_height], inner=inner_r,
-                       outer=outer_r, normal=[0, 0, 1], c_res=80)
-        meshes.append((ring, color, 1.0))
-
-    # 外轮廓线：与渐变带起始颜色一致，确保衔接无缝
+    # 3. 外轮廓线：深灰细圆圈
     outline = pv.Circle(radius=cat_radius, resolution=80)
     outline.points[:, 2] = z_height + 0.001
-    meshes.append((outline, "#222222", 1.0))
+    meshes.append((outline, "#2A2A2A", 1.0))
 
     return meshes
 
