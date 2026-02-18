@@ -112,25 +112,26 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
     椭圆区域：从渐变带末端状态无缝延续，向外继续淡出至透明。
 
     衔接原则：
-    - 最内层 (progress=0) 的高度严格等于渐变带末端高度：
-      Y半轴 = cat_radius*BAND_END_K
-    - 最内层保留适度宽度（X半轴不再过小），避免视觉过窄
-    - 各层椭圆使用同一“右端锚点”x=-BAND_LENGTH，确保与渐变带末端
-      在接缝处自然连续，不会出现断层/错位
-    - 颜色与透明度从渐变带末端状态连续外扩并淡出
+    - 最内层 (progress=0)：Y半轴 = cat_radius*BAND_END_K，颜色 = BAND_END_COLOR，
+      透明度 = BAND_END_OPACITY，与渐变带末端完全一致，无跳变
+    - 最内层 X 半轴设置为极小值，使椭圆起始形状近似“竖向开口”，
+      与渐变带末端截面形状一致
+    - 向外 (progress→1)：颜色继续变浅 (#EEEEEE → #F8F8F8)，透明度继续降低至 0
+    - 最外层加一条极淡的轮廓线，暗示“远端截面边界”
     """
     segment_list = []
     n_layers = 30
 
+    center_x = -BAND_LENGTH
+
     # 内层参数：与渐变带末端完全对齐
     b_inner = cat_radius * BAND_END_K
-    # 内层宽度适度增大，避免“太细”影响观感
-    a_inner = b_inner * 0.28
+    # 关键：a_inner 设为极小值，起始形状近似竖线段，匹配渐变带末端
+    a_inner = max(b_inner * 0.02, 1e-4)
 
-    # 外层参数：向外扩展幅度缩小，保持与渐变带末端视觉协调
-    b_outer = b_inner * 1.5
-    a_outer = a_inner * 2.0
-    right_anchor_x = -BAND_LENGTH
+    # 外层参数：向外扩展，形成柔和透视尾迹
+    b_outer = b_inner * 2.8
+    a_outer = a_inner * 2.8
 
     n_pts = 80
     angles = np.linspace(0, 2 * np.pi, n_pts, endpoint=False)
@@ -138,12 +139,8 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
     for layer_idx in range(n_layers):
         progress = layer_idx / n_layers
 
-        # 使用缓和增长，衔接处更平滑
-        ease = progress ** 0.75
-        a = a_inner + (a_outer - a_inner) * ease
-        b = b_inner + (b_outer - b_inner) * ease
-        # 右端锚点固定在渐变带末端：x = -BAND_LENGTH
-        center_x = right_anchor_x - a
+        a = a_inner + (a_outer - a_inner) * progress
+        b = b_inner + (b_outer - b_inner) * progress
 
         pts = np.zeros((n_pts, 3))
         pts[:, 0] = center_x + a * np.cos(angles)
@@ -152,16 +149,13 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
 
         if layer_idx == 0:
             inner_a, inner_b = 0.0, 0.0
-            inner_center_x = center_x
         else:
             prev = (layer_idx - 1) / n_layers
-            prev_ease = prev ** 0.75
-            inner_a = a_inner + (a_outer - a_inner) * prev_ease
-            inner_b = b_inner + (b_outer - b_inner) * prev_ease
-            inner_center_x = right_anchor_x - inner_a
+            inner_a = a_inner + (a_outer - a_inner) * prev
+            inner_b = b_inner + (b_outer - b_inner) * prev
 
         inner_pts = np.zeros((n_pts, 3))
-        inner_pts[:, 0] = inner_center_x + inner_a * np.cos(angles)
+        inner_pts[:, 0] = center_x + inner_a * np.cos(angles)
         inner_pts[:, 1] = inner_b * np.sin(angles)
         inner_pts[:, 2] = z_height
 
@@ -184,8 +178,7 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
 
     # 最外层轮廓线：极淡的中灰色，暗示椭圆边界但不突兀
     outline_pts = np.zeros((n_pts + 1, 3))
-    outline_center_x = right_anchor_x - a_outer
-    outline_pts[:n_pts, 0] = outline_center_x + a_outer * np.cos(angles)
+    outline_pts[:n_pts, 0] = center_x + a_outer * np.cos(angles)
     outline_pts[:n_pts, 1] = b_outer * np.sin(angles)
     outline_pts[:n_pts, 2] = z_height + 0.0001
     outline_pts[n_pts] = outline_pts[0]
@@ -195,7 +188,7 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
     outline_lines[:, 1] = np.arange(n_pts)
     outline_lines[:, 2] = np.arange(1, n_pts + 1)
     outline_poly.lines = outline_lines
-    segment_list.append((outline_poly, "#BBBBBB", 0.20))
+    segment_list.append((outline_poly, "#BBBBBB", 0.35))
 
     return segment_list
 

@@ -127,9 +127,9 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
     # 内层宽度适度增大，避免“太细”影响观感
     a_inner = b_inner * 0.28
 
-    # 外层参数：向外扩展幅度缩小，保持与渐变带末端视觉协调
-    b_outer = b_inner * 1.5
-    a_outer = a_inner * 2.0
+    # 外层参数：向外扩展，形成柔和透视尾迹
+    b_outer = b_inner * 2.8
+    a_outer = a_inner * 3.2
     right_anchor_x = -BAND_LENGTH
 
     n_pts = 80
@@ -195,7 +195,7 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
     outline_lines[:, 1] = np.arange(n_pts)
     outline_lines[:, 2] = np.arange(1, n_pts + 1)
     outline_poly.lines = outline_lines
-    segment_list.append((outline_poly, "#BBBBBB", 0.20))
+    segment_list.append((outline_poly, "#BBBBBB", 0.35))
 
     return segment_list
 
