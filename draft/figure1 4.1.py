@@ -33,15 +33,16 @@ def create_regular_polygon(center, radius, nsides=3):
 
 def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
     """
-    渐变带：起始颜色与圆盘深色衔接，分段更细化
+    在纯 2D 平面上创建平滑的连续渐变带
+    从黑色圆的边界出发，向左延伸，逐渐变窄、变浅、变透明
     """
-    n_segments = 100
+    n_segments = 60
     segment_list = []
 
     for seg_idx in range(n_segments):
         t_start = seg_idx / n_segments
         t_end = (seg_idx + 1) / n_segments
-        t_params = np.linspace(t_start, t_end, 10)
+        t_params = np.linspace(t_start, t_end, 15)
 
         centerline_x = -0.30 * t_params
         centerline_y = 0.0 - 0.06 * t_params * np.sin(np.pi * t_params)
@@ -66,100 +67,18 @@ def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
         segment_mesh = pv.PolyData(segment_points, np.array(segment_faces))
 
         progress = (t_start + t_end) / 2
-
-        # 修复 1：起始颜色从 #222222 (接近圆盘深色) 开始，过渡更自然
-        # 使用更细化的多段颜色映射
-        if progress < 0.1:
-            # 前 10%：从 #222222 → #444444（非常缓慢）
-            ratio = progress / 0.1
-            r_val = int(34 + (68 - 34) * ratio)
-        elif progress < 0.3:
-            # 10%-30%：#444444 → #777777
-            ratio = (progress - 0.1) / 0.2
-            r_val = int(68 + (119 - 68) * ratio)
-        elif progress < 0.55:
-            # 30%-55%：#777777 → #AAAAAA
-            ratio = (progress - 0.3) / 0.25
-            r_val = int(119 + (170 - 119) * ratio)
-        elif progress < 0.78:
-            # 55%-78%：#AAAAAA → #CCCCCC
-            ratio = (progress - 0.55) / 0.23
-            r_val = int(170 + (204 - 170) * ratio)
+        if progress < 0.25:
+            r_val = int(51 + (102 - 51) * (progress / 0.25))
+        elif progress < 0.5:
+            r_val = int(102 + (153 - 102) * ((progress - 0.25) / 0.25))
+        elif progress < 0.75:
+            r_val = int(153 + (204 - 153) * ((progress - 0.5) / 0.25))
         else:
-            # 78%-100%：#CCCCCC → #EEEEEE
-            ratio = (progress - 0.78) / 0.22
-            r_val = int(204 + (238 - 204) * ratio)
+            r_val = int(204 + (238 - 204) * ((progress - 0.75) / 0.25))
 
         color = f"#{r_val:02x}{r_val:02x}{r_val:02x}"
-
-        # 透明度：前期下降更缓慢，后期加速消失
-        opacity = 0.92 * (1 - progress ** 0.7)
+        opacity = 0.95 * (1 - progress ** 0.8)
         segment_list.append((segment_mesh, color, opacity))
-
-    return segment_list
-
-
-def create_perspective_ellipse(z_height=0, cat_radius=0.04):
-    """
-    修复 3：在圆盘后方（左侧）画椭圆形渐变区域
-    模拟管道从远处延伸过来时，透视压缩产生的椭圆形截面轮廓
-    颜色与渐变带最浅处一致（#EEEEEE），向外逐渐消失
-    """
-    segment_list = []
-    n_layers = 20  # 椭圆层数，越多越平滑
-
-    for layer_idx in range(n_layers):
-        progress = layer_idx / n_layers  # 0 到 1，从内到外
-
-        # 椭圆参数：X 轴（透视方向）比 Y 轴更窄，模拟透视压缩
-        # 随着层数增加，椭圆逐渐扩大
-        a = cat_radius * (0.3 + progress * 1.2)  # X 半轴（透视方向）
-        b = cat_radius * (0.8 + progress * 0.5)  # Y 半轴
-
-        # 椭圆中心向左偏移（朝着渐变带方向）
-        center_x = -cat_radius * 0.5
-
-        # 生成椭圆点
-        n_pts = 60
-        angles = np.linspace(0, 2*np.pi, n_pts, endpoint=False)
-        pts = np.zeros((n_pts, 3))
-        pts[:, 0] = center_x + a * np.cos(angles)
-        pts[:, 1] = b * np.sin(angles)
-        pts[:, 2] = z_height
-
-        # 构建闭合环形面（与内层椭圆之间的区域）
-        if layer_idx == 0:
-            # 最内层：直接用圆盘
-            inner_a = 0
-            inner_b = 0
-            inner_cx = center_x
-        else:
-            prev_progress = (layer_idx - 1) / n_layers
-            inner_a = cat_radius * (0.3 + prev_progress * 1.2)
-            inner_b = cat_radius * (0.8 + prev_progress * 0.5)
-            inner_cx = center_x
-
-        inner_pts = np.zeros((n_pts, 3))
-        inner_pts[:, 0] = inner_cx + inner_a * np.cos(angles)
-        inner_pts[:, 1] = inner_b * np.sin(angles)
-        inner_pts[:, 2] = z_height
-
-        # 合并内外两层点
-        all_pts = np.vstack([inner_pts, pts])
-        faces = []
-        for i in range(n_pts):
-            next_i = (i + 1) % n_pts
-            faces.extend([3, i, next_i, n_pts + next_i])
-            faces.extend([3, i, n_pts + next_i, n_pts + i])
-
-        ring_mesh = pv.PolyData(all_pts, np.array(faces))
-
-        # 颜色：与渐变带最浅处一致，从内到外逐渐变浅
-        r_val = int(200 + progress * 38)  # #C8C8C8 → #EEEEEE
-        color = f"#{r_val:02x}{r_val:02x}{r_val:02x}"
-        # 透明度：从内到外逐渐消失
-        opacity = 0.35 * (1 - progress ** 0.6)
-        segment_list.append((ring_mesh, color, opacity))
 
     return segment_list
 
@@ -169,68 +88,48 @@ def create_catheter_cross_section(z_height=0, cat_radius=0.04):
     创建具有三维感的导管截面：
     - 外圆环（管壁）
     - 内腔圆盘（渐变填充）
-    - 高光弧（优化：改为渐变的弧形，而不是突兀的白色线条）
+    - 高光弧（右上方白色弧，模拟圆柱体反光）
     """
     meshes = []
 
-    # 1. 内腔填充：深灰色圆盘
+    # 1. 内腔填充：深灰色圆盘（模拟管道内部空腔）
     inner_disc = pv.Disc(center=[0, 0, z_height], inner=0,
                          outer=cat_radius * 0.6, normal=[0, 0, 1], c_res=80)
     meshes.append((inner_disc, "#555555", 1.0))
 
-    # 2. 管壁圆环：深灰色环
+    # 2. 管壁圆环：深灰色环（模拟管壁厚度）
     wall_ring = pv.Disc(center=[0, 0, z_height], inner=cat_radius * 0.6,
                         outer=cat_radius, normal=[0, 0, 1], c_res=80)
     meshes.append((wall_ring, "#222222", 1.0))
 
-    # 3. 外轮廓线：黑色细圆圈
+    # 3. 外轮廓线：黑色细圆圈（强化边界）
     outline = pv.Circle(radius=cat_radius, resolution=80)
     outline.points[:, 2] = z_height + 0.001
     meshes.append((outline, "#111111", 1.0))
 
-    # 修复 2：高光弧优化
-    # 改为多层渐变弧，从中心向两端逐渐变透明，避免突兀感
-    n_highlight_layers = 5
-    for hl_idx in range(n_highlight_layers):
-        # 高光弧的角度范围（右上方）
-        angle_center = np.pi * 0.30  # 中心角度约 54°
-        angle_half_width = np.pi * 0.18 * (1 - hl_idx * 0.15)  # 宽度逐层缩小
-        highlight_angles = np.linspace(angle_center - angle_half_width,
-                                       angle_center + angle_half_width, 20)
+    # 4. 高光弧：在右上方约 30°-80° 范围内画一段白色弧
+    # 这是让大脑识别"圆柱体截面"的关键视觉元素
+    highlight_angles = np.linspace(np.pi * 0.15, np.pi * 0.45, 20)
+    highlight_r = cat_radius * 0.72  # 高光位于管壁内侧
+    highlight_pts = np.zeros((20, 3))
+    highlight_pts[:, 0] = highlight_r * np.cos(highlight_angles)
+    highlight_pts[:, 1] = highlight_r * np.sin(highlight_angles)
+    highlight_pts[:, 2] = z_height + 0.002
 
-        # 高光位置：稍微向内偏移
-        highlight_r = cat_radius * (0.68 + hl_idx * 0.03)
-        highlight_pts = np.zeros((20, 3))
-        highlight_pts[:, 0] = highlight_r * np.cos(highlight_angles)
-        highlight_pts[:, 1] = highlight_r * np.sin(highlight_angles)
-        highlight_pts[:, 2] = z_height + 0.002
-
-        highlight_poly = pv.PolyData(highlight_pts)
-        highlight_lines = np.full((19, 3), 2, dtype=np.int_)
-        highlight_lines[:, 1] = np.arange(19)
-        highlight_lines[:, 2] = np.arange(1, 20)
-        highlight_poly.lines = highlight_lines
-
-        # 管状体半径逐层减小，透明度逐层降低
-        tube_radius = cat_radius * (0.07 - hl_idx * 0.01)
-        hl_opacity = 0.85 - hl_idx * 0.15
-        # 颜色从白色到浅灰
-        c_val = int(255 - hl_idx * 20)
-        hl_color = f"#{c_val:02x}{c_val:02x}{c_val:02x}"
-
-        highlight_tube = highlight_poly.tube(radius=max(tube_radius, 0.001))
-        meshes.append((highlight_tube, hl_color, hl_opacity))
+    highlight_poly = pv.PolyData(highlight_pts)
+    highlight_lines = np.full((19, 3), 2, dtype=np.int_)
+    highlight_lines[:, 1] = np.arange(19)
+    highlight_lines[:, 2] = np.arange(1, 20)
+    highlight_poly.lines = highlight_lines
+    highlight_tube = highlight_poly.tube(radius=cat_radius * 0.06)
+    meshes.append((highlight_tube, "#FFFFFF", 0.9))
 
     return meshes
 
 
 def main():
     plotter = pv.Plotter(shape=(1, 2), window_size=[1600, 800])
-
-    # --- 左侧视口: 3D 全景 ---
-    plotter.subplot(0, 0)
     plotter.set_background("white")
-    plotter.add_text("Global Workspace", font_size=12, color="black")
 
     catheter_points = np.array([[0, 0, 0], [0.2, 0.5, 0.8], [0.5, 1.2, 1.5],
                                 [1.2, 1.8, 2.0], [2.0, 2.2, 2.5]])
@@ -246,6 +145,9 @@ def main():
     sphere_pos = [[1.6, 1.8, 2.4], [1.1, 0.6, 1.8]]
     tetra_pos = [[2.2, 1.5, 2.0], [0.8, 1.9, 2.2]]
 
+    # --- 左侧视口: 3D 全景 ---
+    plotter.subplot(0, 0)
+    plotter.add_text("Global Workspace", font_size=12, color="black")
     plotter.add_mesh(catheter_mesh, color="#333333",
                      smooth_shading=True, specular=0.5)
 
@@ -295,27 +197,22 @@ def main():
     plotter.camera_position = [
         (6.0, 4.0, 5.0), (1.0, 1.2, 1.2), (0.0, 0.0, 1.0)]
 
-    # --- 右侧视口: 尖端截面细节 ---
+    # --- 右侧视口: 尖端截面细节 (2D + 伪三维) ---
     plotter.subplot(0, 1)
-    # 设置极浅的蓝灰色背景
-    plotter.set_background("#F5F7FA")
     plotter.add_text("Tip Cross-section View (2D Control Plane)",
                      font_size=12, color="black")
 
-    ellipse_segments = create_perspective_ellipse(
-        z_height=tip_pos[2], cat_radius=cat_radius)
-    for mesh, color, opacity in ellipse_segments:
-        plotter.add_mesh(mesh, color=color, opacity=opacity,
-                         smooth_shading=True)
-
+    # 1. 渐变带（底层，最先绘制）
     gradient_segments = create_smooth_2d_gradient_band(
-        z_height=tip_pos[2] + 0.0005, cat_radius=cat_radius)
+        z_height=tip_pos[2], cat_radius=cat_radius)
     for segment_mesh, color, opacity in gradient_segments:
         plotter.add_mesh(segment_mesh, color=color,
                          opacity=opacity, smooth_shading=True)
 
+    # 2. 障碍物（中层）
     np.random.seed(42)
-    count, attempts = 0, 0
+    count = 0
+    attempts = 0
     while count < 35 and attempts < 200:
         attempts += 1
         angle = np.random.uniform(0, 2*np.pi)
@@ -323,6 +220,7 @@ def main():
         ox, oy = dist * np.cos(angle), dist * np.sin(angle)
         base_r = np.random.uniform(0.008, 0.016)
 
+        # 渐变带重叠检查
         is_overlapping_band = False
         if ox < 0.05:
             t = ox / -0.30
@@ -334,59 +232,51 @@ def main():
         if is_overlapping_band:
             continue
 
-        local_pos = [ox, oy, tip_pos[2] + 0.001]
+        local_pos = [ox, oy, tip_pos[2]]
         rand_val = np.random.rand()
         if rand_val < 0.33:
             obs_p = pv.Circle(radius=base_r, resolution=50)
             obs_p.points[:, 0] += ox
             obs_p.points[:, 1] += oy
-            obs_p.points[:, 2] = tip_pos[2] + 0.001
+            obs_p.points[:, 2] = tip_pos[2]
         elif rand_val < 0.66:
             ratio = np.random.uniform(0.7, 1.3)
             w, h = base_r, base_r * ratio
-            z = tip_pos[2] + 0.001
-            obs_p = pv.Box(bounds=[ox-w, ox+w, oy-h, oy+h, z-0.0005, z+0.0005])
+            obs_p = pv.Box(bounds=[ox-w, ox+w, oy-h, oy+h,
+                           tip_pos[2]-0.001, tip_pos[2]+0.001])
         else:
             obs_p = create_regular_polygon(local_pos, base_r, nsides=3)
+
         plotter.add_mesh(obs_p, color="red", style="wireframe",
                          line_width=1, opacity=0.8)
         count += 1
 
-    # 3. 探测范围圆（改为淡绿色虚线圆）
-    n_dashes = 40
-    dash_angle = (2 * np.pi) / n_dashes
-    for i in range(n_dashes):
-        start_a = i * dash_angle
-        end_a = start_a + dash_angle * 0.5
-        dash_angles = np.linspace(start_a, end_a, 5)
-        dash_r = cat_radius * 4
-        dash_pts = np.zeros((5, 3))
-        dash_pts[:, 0] = dash_r * np.cos(dash_angles)
-        dash_pts[:, 1] = dash_r * np.sin(dash_angles)
-        dash_pts[:, 2] = tip_pos[2] + 0.001
-        dash_poly = pv.PolyData(dash_pts)
-        dash_lines = np.full((4, 3), 2, dtype=np.int_)
-        dash_lines[:, 1] = np.arange(4)
-        dash_lines[:, 2] = np.arange(1, 5)
-        dash_poly.lines = dash_lines
-        plotter.add_mesh(dash_poly, color="#90EE90", line_width=1.5)
+    # 3. 探测范围圆（中层）
+    det_circle = pv.Circle(radius=cat_radius*4, resolution=80)
+    det_circle.points[:, 2] = tip_pos[2]
+    plotter.add_mesh(det_circle, color="green",
+                     style="wireframe", line_width=1.5)
 
+    # 4. 浅灰色边框
     roi_border = pv.Box(
         bounds=[-0.3, 0.3, -0.3, 0.3, tip_pos[2]-0.001, tip_pos[2]+0.001])
     plotter.add_mesh(roi_border, color="lightgray",
                      style="wireframe", line_width=2)
 
+    # 5. 导管截面（顶层，最后绘制，确保覆盖所有元素）
     cross_section_meshes = create_catheter_cross_section(
         z_height=tip_pos[2] + 0.003, cat_radius=cat_radius)
     for mesh, color, opacity in cross_section_meshes:
         plotter.add_mesh(mesh, color=color, opacity=opacity,
                          smooth_shading=True)
 
+    # 右侧相机：正对 XY 平面
     plotter.camera.position = [0, 0, tip_pos[2] + 1.0]
     plotter.camera.focal_point = [0, 0, tip_pos[2]]
     plotter.camera.up = [0, 1, 0]
     plotter.enable_parallel_projection()
     plotter.reset_camera()
+
     plotter.show()
 
 

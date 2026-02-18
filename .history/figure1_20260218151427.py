@@ -197,8 +197,6 @@ def create_catheter_cross_section(z_height=0, cat_radius=0.04):
         angle_half_width = np.pi * 0.18 * (1 - hl_idx * 0.15)  # 宽度逐层缩小
         highlight_angles = np.linspace(angle_center - angle_half_width,
                                        angle_center + angle_half_width, 20)
-
-        # 高光位置：稍微向内偏移
         highlight_r = cat_radius * (0.68 + hl_idx * 0.03)
         highlight_pts = np.zeros((20, 3))
         highlight_pts[:, 0] = highlight_r * np.cos(highlight_angles)
@@ -211,13 +209,10 @@ def create_catheter_cross_section(z_height=0, cat_radius=0.04):
         highlight_lines[:, 2] = np.arange(1, 20)
         highlight_poly.lines = highlight_lines
 
-        # 管状体半径逐层减小，透明度逐层降低
         tube_radius = cat_radius * (0.07 - hl_idx * 0.01)
         hl_opacity = 0.85 - hl_idx * 0.15
-        # 颜色从白色到浅灰
         c_val = int(255 - hl_idx * 20)
         hl_color = f"#{c_val:02x}{c_val:02x}{c_val:02x}"
-
         highlight_tube = highlight_poly.tube(radius=max(tube_radius, 0.001))
         meshes.append((highlight_tube, hl_color, hl_opacity))
 

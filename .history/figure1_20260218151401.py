@@ -166,39 +166,27 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
 
 def create_catheter_cross_section(z_height=0, cat_radius=0.04):
     """
-    创建具有三维感的导管截面：
-    - 外圆环（管壁）
-    - 内腔圆盘（渐变填充）
-    - 高光弧（优化：改为渐变的弧形，而不是突兀的白色线条）
+    创建具有三维感的导管截面
     """
     meshes = []
-
-    # 1. 内腔填充：深灰色圆盘
     inner_disc = pv.Disc(center=[0, 0, z_height], inner=0,
                          outer=cat_radius * 0.6, normal=[0, 0, 1], c_res=80)
     meshes.append((inner_disc, "#555555", 1.0))
 
-    # 2. 管壁圆环：深灰色环
     wall_ring = pv.Disc(center=[0, 0, z_height], inner=cat_radius * 0.6,
                         outer=cat_radius, normal=[0, 0, 1], c_res=80)
     meshes.append((wall_ring, "#222222", 1.0))
 
-    # 3. 外轮廓线：黑色细圆圈
     outline = pv.Circle(radius=cat_radius, resolution=80)
     outline.points[:, 2] = z_height + 0.001
     meshes.append((outline, "#111111", 1.0))
 
-    # 修复 2：高光弧优化
-    # 改为多层渐变弧，从中心向两端逐渐变透明，避免突兀感
     n_highlight_layers = 5
     for hl_idx in range(n_highlight_layers):
-        # 高光弧的角度范围（右上方）
-        angle_center = np.pi * 0.30  # 中心角度约 54°
-        angle_half_width = np.pi * 0.18 * (1 - hl_idx * 0.15)  # 宽度逐层缩小
+        angle_center = np.pi * 0.30
+        angle_half_width = np.pi * 0.18 * (1 - hl_idx * 0.15)
         highlight_angles = np.linspace(angle_center - angle_half_width,
                                        angle_center + angle_half_width, 20)
-
-        # 高光位置：稍微向内偏移
         highlight_r = cat_radius * (0.68 + hl_idx * 0.03)
         highlight_pts = np.zeros((20, 3))
         highlight_pts[:, 0] = highlight_r * np.cos(highlight_angles)
@@ -211,13 +199,10 @@ def create_catheter_cross_section(z_height=0, cat_radius=0.04):
         highlight_lines[:, 2] = np.arange(1, 20)
         highlight_poly.lines = highlight_lines
 
-        # 管状体半径逐层减小，透明度逐层降低
         tube_radius = cat_radius * (0.07 - hl_idx * 0.01)
         hl_opacity = 0.85 - hl_idx * 0.15
-        # 颜色从白色到浅灰
         c_val = int(255 - hl_idx * 20)
         hl_color = f"#{c_val:02x}{c_val:02x}{c_val:02x}"
-
         highlight_tube = highlight_poly.tube(radius=max(tube_radius, 0.001))
         meshes.append((highlight_tube, hl_color, hl_opacity))
 

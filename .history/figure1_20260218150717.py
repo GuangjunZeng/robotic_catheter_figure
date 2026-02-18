@@ -35,6 +35,7 @@ def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
     """
     渐变带：起始颜色与圆盘深色衔接，分段更细化
     """
+    # 增加分段数量，使渐变更细腻
     n_segments = 100
     segment_list = []
 
@@ -226,11 +227,7 @@ def create_catheter_cross_section(z_height=0, cat_radius=0.04):
 
 def main():
     plotter = pv.Plotter(shape=(1, 2), window_size=[1600, 800])
-
-    # --- 左侧视口: 3D 全景 ---
-    plotter.subplot(0, 0)
     plotter.set_background("white")
-    plotter.add_text("Global Workspace", font_size=12, color="black")
 
     catheter_points = np.array([[0, 0, 0], [0.2, 0.5, 0.8], [0.5, 1.2, 1.5],
                                 [1.2, 1.8, 2.0], [2.0, 2.2, 2.5]])
@@ -246,6 +243,9 @@ def main():
     sphere_pos = [[1.6, 1.8, 2.4], [1.1, 0.6, 1.8]]
     tetra_pos = [[2.2, 1.5, 2.0], [0.8, 1.9, 2.2]]
 
+    # --- 左侧视口: 3D 全景 ---
+    plotter.subplot(0, 0)
+    plotter.add_text("Global Workspace", font_size=12, color="black")
     plotter.add_mesh(catheter_mesh, color="#333333",
                      smooth_shading=True, specular=0.5)
 
@@ -297,25 +297,27 @@ def main():
 
     # --- 右侧视口: 尖端截面细节 ---
     plotter.subplot(0, 1)
-    # 设置极浅的蓝灰色背景
-    plotter.set_background("#F5F7FA")
     plotter.add_text("Tip Cross-section View (2D Control Plane)",
                      font_size=12, color="black")
 
+    # 层级 1（最底层）：椭圆形透视渐变
     ellipse_segments = create_perspective_ellipse(
         z_height=tip_pos[2], cat_radius=cat_radius)
     for mesh, color, opacity in ellipse_segments:
         plotter.add_mesh(mesh, color=color, opacity=opacity,
                          smooth_shading=True)
 
+    # 层级 2：渐变带
     gradient_segments = create_smooth_2d_gradient_band(
         z_height=tip_pos[2] + 0.0005, cat_radius=cat_radius)
     for segment_mesh, color, opacity in gradient_segments:
         plotter.add_mesh(segment_mesh, color=color,
                          opacity=opacity, smooth_shading=True)
 
+    # 层级 3：障碍物和探测圆
     np.random.seed(42)
-    count, attempts = 0, 0
+    count = 0
+    attempts = 0
     while count < 35 and attempts < 200:
         attempts += 1
         angle = np.random.uniform(0, 2*np.pi)
@@ -348,34 +350,22 @@ def main():
             obs_p = pv.Box(bounds=[ox-w, ox+w, oy-h, oy+h, z-0.0005, z+0.0005])
         else:
             obs_p = create_regular_polygon(local_pos, base_r, nsides=3)
+
         plotter.add_mesh(obs_p, color="red", style="wireframe",
                          line_width=1, opacity=0.8)
         count += 1
 
-    # 3. 探测范围圆（改为淡绿色虚线圆）
-    n_dashes = 40
-    dash_angle = (2 * np.pi) / n_dashes
-    for i in range(n_dashes):
-        start_a = i * dash_angle
-        end_a = start_a + dash_angle * 0.5
-        dash_angles = np.linspace(start_a, end_a, 5)
-        dash_r = cat_radius * 4
-        dash_pts = np.zeros((5, 3))
-        dash_pts[:, 0] = dash_r * np.cos(dash_angles)
-        dash_pts[:, 1] = dash_r * np.sin(dash_angles)
-        dash_pts[:, 2] = tip_pos[2] + 0.001
-        dash_poly = pv.PolyData(dash_pts)
-        dash_lines = np.full((4, 3), 2, dtype=np.int_)
-        dash_lines[:, 1] = np.arange(4)
-        dash_lines[:, 2] = np.arange(1, 5)
-        dash_poly.lines = dash_lines
-        plotter.add_mesh(dash_poly, color="#90EE90", line_width=1.5)
+    det_circle = pv.Circle(radius=cat_radius*4, resolution=80)
+    det_circle.points[:, 2] = tip_pos[2] + 0.001
+    plotter.add_mesh(det_circle, color="green",
+                     style="wireframe", line_width=1.5)
 
     roi_border = pv.Box(
         bounds=[-0.3, 0.3, -0.3, 0.3, tip_pos[2]-0.001, tip_pos[2]+0.001])
     plotter.add_mesh(roi_border, color="lightgray",
                      style="wireframe", line_width=2)
 
+    # 层级 4（最顶层）：导管截面（含优化高光弧）
     cross_section_meshes = create_catheter_cross_section(
         z_height=tip_pos[2] + 0.003, cat_radius=cat_radius)
     for mesh, color, opacity in cross_section_meshes:

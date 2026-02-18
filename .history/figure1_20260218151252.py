@@ -70,29 +70,22 @@ def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
         # 修复 1：起始颜色从 #222222 (接近圆盘深色) 开始，过渡更自然
         # 使用更细化的多段颜色映射
         if progress < 0.1:
-            # 前 10%：从 #222222 → #444444（非常缓慢）
             ratio = progress / 0.1
             r_val = int(34 + (68 - 34) * ratio)
         elif progress < 0.3:
-            # 10%-30%：#444444 → #777777
             ratio = (progress - 0.1) / 0.2
             r_val = int(68 + (119 - 68) * ratio)
         elif progress < 0.55:
-            # 30%-55%：#777777 → #AAAAAA
             ratio = (progress - 0.3) / 0.25
             r_val = int(119 + (170 - 119) * ratio)
         elif progress < 0.78:
-            # 55%-78%：#AAAAAA → #CCCCCC
             ratio = (progress - 0.55) / 0.23
             r_val = int(170 + (204 - 170) * ratio)
         else:
-            # 78%-100%：#CCCCCC → #EEEEEE
             ratio = (progress - 0.78) / 0.22
             r_val = int(204 + (238 - 204) * ratio)
 
         color = f"#{r_val:02x}{r_val:02x}{r_val:02x}"
-
-        # 透明度：前期下降更缓慢，后期加速消失
         opacity = 0.92 * (1 - progress ** 0.7)
         segment_list.append((segment_mesh, color, opacity))
 
@@ -101,25 +94,17 @@ def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
 
 def create_perspective_ellipse(z_height=0, cat_radius=0.04):
     """
-    修复 3：在圆盘后方（左侧）画椭圆形渐变区域
-    模拟管道从远处延伸过来时，透视压缩产生的椭圆形截面轮廓
-    颜色与渐变带最浅处一致（#EEEEEE），向外逐渐消失
+    在圆盘后方（左侧）画椭圆形渐变区域
     """
     segment_list = []
-    n_layers = 20  # 椭圆层数，越多越平滑
+    n_layers = 20
 
     for layer_idx in range(n_layers):
-        progress = layer_idx / n_layers  # 0 到 1，从内到外
-
-        # 椭圆参数：X 轴（透视方向）比 Y 轴更窄，模拟透视压缩
-        # 随着层数增加，椭圆逐渐扩大
-        a = cat_radius * (0.3 + progress * 1.2)  # X 半轴（透视方向）
-        b = cat_radius * (0.8 + progress * 0.5)  # Y 半轴
-
-        # 椭圆中心向左偏移（朝着渐变带方向）
+        progress = layer_idx / n_layers
+        a = cat_radius * (0.3 + progress * 1.2)
+        b = cat_radius * (0.8 + progress * 0.5)
         center_x = -cat_radius * 0.5
 
-        # 生成椭圆点
         n_pts = 60
         angles = np.linspace(0, 2*np.pi, n_pts, endpoint=False)
         pts = np.zeros((n_pts, 3))
@@ -127,12 +112,8 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
         pts[:, 1] = b * np.sin(angles)
         pts[:, 2] = z_height
 
-        # 构建闭合环形面（与内层椭圆之间的区域）
         if layer_idx == 0:
-            # 最内层：直接用圆盘
-            inner_a = 0
-            inner_b = 0
-            inner_cx = center_x
+            inner_a, inner_b, inner_cx = 0, 0, center_x
         else:
             prev_progress = (layer_idx - 1) / n_layers
             inner_a = cat_radius * (0.3 + prev_progress * 1.2)
@@ -144,7 +125,6 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
         inner_pts[:, 1] = inner_b * np.sin(angles)
         inner_pts[:, 2] = z_height
 
-        # 合并内外两层点
         all_pts = np.vstack([inner_pts, pts])
         faces = []
         for i in range(n_pts):
@@ -153,11 +133,8 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
             faces.extend([3, i, n_pts + next_i, n_pts + i])
 
         ring_mesh = pv.PolyData(all_pts, np.array(faces))
-
-        # 颜色：与渐变带最浅处一致，从内到外逐渐变浅
-        r_val = int(200 + progress * 38)  # #C8C8C8 → #EEEEEE
+        r_val = int(200 + progress * 38)
         color = f"#{r_val:02x}{r_val:02x}{r_val:02x}"
-        # 透明度：从内到外逐渐消失
         opacity = 0.35 * (1 - progress ** 0.6)
         segment_list.append((ring_mesh, color, opacity))
 
@@ -166,39 +143,27 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
 
 def create_catheter_cross_section(z_height=0, cat_radius=0.04):
     """
-    创建具有三维感的导管截面：
-    - 外圆环（管壁）
-    - 内腔圆盘（渐变填充）
-    - 高光弧（优化：改为渐变的弧形，而不是突兀的白色线条）
+    创建具有三维感的导管截面
     """
     meshes = []
-
-    # 1. 内腔填充：深灰色圆盘
     inner_disc = pv.Disc(center=[0, 0, z_height], inner=0,
                          outer=cat_radius * 0.6, normal=[0, 0, 1], c_res=80)
     meshes.append((inner_disc, "#555555", 1.0))
 
-    # 2. 管壁圆环：深灰色环
     wall_ring = pv.Disc(center=[0, 0, z_height], inner=cat_radius * 0.6,
                         outer=cat_radius, normal=[0, 0, 1], c_res=80)
     meshes.append((wall_ring, "#222222", 1.0))
 
-    # 3. 外轮廓线：黑色细圆圈
     outline = pv.Circle(radius=cat_radius, resolution=80)
     outline.points[:, 2] = z_height + 0.001
     meshes.append((outline, "#111111", 1.0))
 
-    # 修复 2：高光弧优化
-    # 改为多层渐变弧，从中心向两端逐渐变透明，避免突兀感
     n_highlight_layers = 5
     for hl_idx in range(n_highlight_layers):
-        # 高光弧的角度范围（右上方）
-        angle_center = np.pi * 0.30  # 中心角度约 54°
-        angle_half_width = np.pi * 0.18 * (1 - hl_idx * 0.15)  # 宽度逐层缩小
+        angle_center = np.pi * 0.30
+        angle_half_width = np.pi * 0.18 * (1 - hl_idx * 0.15)
         highlight_angles = np.linspace(angle_center - angle_half_width,
                                        angle_center + angle_half_width, 20)
-
-        # 高光位置：稍微向内偏移
         highlight_r = cat_radius * (0.68 + hl_idx * 0.03)
         highlight_pts = np.zeros((20, 3))
         highlight_pts[:, 0] = highlight_r * np.cos(highlight_angles)
@@ -211,13 +176,10 @@ def create_catheter_cross_section(z_height=0, cat_radius=0.04):
         highlight_lines[:, 2] = np.arange(1, 20)
         highlight_poly.lines = highlight_lines
 
-        # 管状体半径逐层减小，透明度逐层降低
         tube_radius = cat_radius * (0.07 - hl_idx * 0.01)
         hl_opacity = 0.85 - hl_idx * 0.15
-        # 颜色从白色到浅灰
         c_val = int(255 - hl_idx * 20)
         hl_color = f"#{c_val:02x}{c_val:02x}{c_val:02x}"
-
         highlight_tube = highlight_poly.tube(radius=max(tube_radius, 0.001))
         meshes.append((highlight_tube, hl_color, hl_opacity))
 
