@@ -101,50 +101,42 @@ def create_smooth_2d_gradient_band(z_height=0, cat_radius=0.04):
 
 def create_perspective_ellipse(z_height=0, cat_radius=0.04):
     """
-    修复 3：在圆盘后方（左侧）画椭圆形渐变区域
-    模拟管道从远处延伸过来时，透视压缩产生的椭圆形截面轮廓
-    颜色与渐变带最浅处一致（#EEEEEE），向外逐渐消失
+    在圆盘后方（左侧）画椭圆形渐变区域
+    优化：增大椭圆尺寸，使其超出渐变带末端，强化透视感
     """
     segment_list = []
-    n_layers = 20  # 椭圆层数，越多越平滑
+    n_layers = 25  # 增加层数使过渡更平滑
 
     for layer_idx in range(n_layers):
-        progress = layer_idx / n_layers  # 0 到 1，从内到外
+        progress = layer_idx / n_layers
 
-        # 椭圆参数：X 轴（透视方向）比 Y 轴更窄，模拟透视压缩
-        # 随着层数增加，椭圆逐渐扩大
-        a = cat_radius * (0.3 + progress * 1.2)  # X 半轴（透视方向）
-        b = cat_radius * (0.8 + progress * 0.5)  # Y 半轴
+        # 椭圆参数：增大 a 和 b，使其在视觉上形成一个清晰的背景轮廓
+        # a 是 X 轴（透视方向），b 是 Y 轴
+        a = cat_radius * (0.8 + progress * 2.5)  # 增大起始和终止尺寸
+        b = cat_radius * (1.2 + progress * 1.0)
 
-        # 椭圆中心向左偏移（朝着渐变带方向）
-        center_x = -cat_radius * 0.5
+        # 将椭圆中心进一步向左偏移，使其与渐变带末端位置匹配
+        center_x = -0.32
 
-        # 生成椭圆点
-        n_pts = 60
+        n_pts = 80
         angles = np.linspace(0, 2*np.pi, n_pts, endpoint=False)
         pts = np.zeros((n_pts, 3))
         pts[:, 0] = center_x + a * np.cos(angles)
         pts[:, 1] = b * np.sin(angles)
         pts[:, 2] = z_height
 
-        # 构建闭合环形面（与内层椭圆之间的区域）
         if layer_idx == 0:
-            # 最内层：直接用圆盘
-            inner_a = 0
-            inner_b = 0
-            inner_cx = center_x
+            inner_a, inner_b = 0, 0
         else:
             prev_progress = (layer_idx - 1) / n_layers
-            inner_a = cat_radius * (0.3 + prev_progress * 1.2)
-            inner_b = cat_radius * (0.8 + prev_progress * 0.5)
-            inner_cx = center_x
+            inner_a = cat_radius * (0.8 + prev_progress * 2.5)
+            inner_b = cat_radius * (1.2 + prev_progress * 1.0)
 
         inner_pts = np.zeros((n_pts, 3))
-        inner_pts[:, 0] = inner_cx + inner_a * np.cos(angles)
+        inner_pts[:, 0] = center_x + inner_a * np.cos(angles)
         inner_pts[:, 1] = inner_b * np.sin(angles)
         inner_pts[:, 2] = z_height
 
-        # 合并内外两层点
         all_pts = np.vstack([inner_pts, pts])
         faces = []
         for i in range(n_pts):
@@ -154,11 +146,11 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
 
         ring_mesh = pv.PolyData(all_pts, np.array(faces))
 
-        # 颜色：与渐变带最浅处一致，从内到外逐渐变浅
-        r_val = int(200 + progress * 38)  # #C8C8C8 → #EEEEEE
+        # 颜色：使用稍深的灰色，使其在蓝灰色背景上更明显
+        r_val = int(180 + progress * 50)
         color = f"#{r_val:02x}{r_val:02x}{r_val:02x}"
-        # 透明度：从内到外逐渐减弱，但末端保留最低可见度
-        opacity = max(0.35 * (1 - progress ** 0.6), 0.08)
+        # 透明度：增加基础透明度
+        opacity = max(0.45 * (1 - progress ** 0.5), 0.1)
         segment_list.append((ring_mesh, color, opacity))
 
     return segment_list
@@ -196,6 +188,7 @@ def main():
 
     # --- 左侧视口: 3D 全景 ---
     plotter.subplot(0, 0)
+    # 显式设置左侧为白色背景
     plotter.set_background("white")
     plotter.add_text("Global Workspace", font_size=12, color="black")
 
