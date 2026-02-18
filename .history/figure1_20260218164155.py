@@ -174,9 +174,9 @@ def create_perspective_ellipse(z_height=0, cat_radius=0.04):
 
         ring_mesh = pv.PolyData(all_pts, np.array(faces))
 
-        # 颜色：从渐变带末端颜色 (#D2D2D2) 变浅到 #F2F2F2，最外层更浅
-        r_val = int(BAND_END_COLOR + (242 - BAND_END_COLOR)
-                    * (progress ** 1.2))
+        # 颜色：从渐变带末端颜色 (#D2D2D2) 变浅到 #E8E8E8，变化极平缓
+        r_val = int(BAND_END_COLOR + (232 - BAND_END_COLOR)
+                    * (progress ** 1.5))
         color = f"#{r_val:02x}{r_val:02x}{r_val:02x}"
 
         # 透明度：用极慢的衰减（^0.25），且末端保留 0.06 的最低可见度
@@ -373,6 +373,11 @@ def main():
         dash_lines[:, 2] = np.arange(1, 5)
         dash_poly.lines = dash_lines
         plotter.add_mesh(dash_poly, color="#90EE90", line_width=1.5)
+
+    roi_border = pv.Box(
+        bounds=[-0.3, 0.3, -0.3, 0.3, tip_pos[2]-0.001, tip_pos[2]+0.001])
+    plotter.add_mesh(roi_border, color="lightgray",
+                     style="wireframe", line_width=2)
 
     cross_section_meshes = create_catheter_cross_section(
         z_height=tip_pos[2] + 0.003, cat_radius=cat_radius)
