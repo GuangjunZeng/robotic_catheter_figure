@@ -235,11 +235,9 @@ def main():
         local_pos = [ox, oy, tip_pos[2]]
         rand_val = np.random.rand()
         if rand_val < 0.33:
-            # 圆形：使用 Circle 代替 Disc，避免内部网格线
-            obs_p = pv.Circle(radius=base_r, resolution=50)
-            obs_p.points[:, 0] += ox
-            obs_p.points[:, 1] += oy
-            obs_p.points[:, 2] = tip_pos[2]
+            # 圆形：使用 Disc 但设置 style="wireframe" 模拟空心圆
+            obs_p = pv.Disc(center=local_pos, inner=0,
+                            outer=base_r, normal=[0, 0, 1], c_res=30)
         elif rand_val < 0.66:
             # 矩形：使用 Box 但设置 style="wireframe"
             ratio = np.random.uniform(0.7, 1.3)
