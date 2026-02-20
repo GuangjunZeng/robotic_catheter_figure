@@ -262,7 +262,7 @@ def main():
     obs_size = cat_radius * 1.5
     box_pos = [[1.4, 2.0, 1.8]]     # 0.6, 0.6, 1.0],
     sphere_pos = [[1.6, 1.8, 2.4]]  # , [1.1, 0.6, 1.8]
-    tetra_pos = [[0.8, 1.9, 2.2]]   # , [2.2, 1.5, 2.0]
+    tetra_pos = [[2.2, 1.5, 2.0]]   # , 
 
     plotter.add_mesh(catheter_mesh, color="#333333",
                      smooth_shading=True, specular=0.5)
@@ -304,11 +304,11 @@ def main():
         add_elegant_velocity(
             plotter, pos, [0.1, 0.2, 0.1] if i == 0 else [-0.2, -0.1, 0.2])
 
-    # roi_plane = pv.Plane(center=tip_pos, direction=tip_dir,
-    #                      i_size=0.6, j_size=0.6)
-    # plotter.add_mesh(roi_plane, color="lightgray",
-    #                  style="wireframe", line_width=1, opacity=0.5)
-    # plotter.add_mesh(roi_plane, color="lightgray", opacity=0.05)
+    roi_plane = pv.Plane(center=tip_pos, direction=tip_dir,
+                         i_size=0.6, j_size=0.6)
+    plotter.add_mesh(roi_plane, color="lightgray",
+                     style="wireframe", line_width=1, opacity=0.5)
+    plotter.add_mesh(roi_plane, color="lightgray", opacity=0.05)
     plotter.add_axes()
     plotter.camera_position = [
         (6.0, 4.0, 5.0), (1.0, 1.2, 1.2), (0.0, 0.0, 1.0)]

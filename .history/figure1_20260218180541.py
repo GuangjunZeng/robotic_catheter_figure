@@ -259,10 +259,10 @@ def main():
     tip_dir = (smooth_pts[-1] - smooth_pts[-10]) / \
         np.linalg.norm(smooth_pts[-1] - smooth_pts[-10])
 
-    obs_size = cat_radius * 1.5
-    box_pos = [[1.4, 2.0, 1.8]]     # 0.6, 0.6, 1.0],
-    sphere_pos = [[1.6, 1.8, 2.4]]  # , [1.1, 0.6, 1.8]
-    tetra_pos = [[0.8, 1.9, 2.2]]   # , [2.2, 1.5, 2.0]
+    obs_size = cat_radius * 1.8
+    box_pos = [[0.6, 0.6, 1.0], [1.4, 2.0, 1.8]]
+    sphere_pos = [[1.6, 1.8, 2.4], [1.1, 0.6, 1.8]]
+    tetra_pos = [[2.2, 1.5, 2.0], [0.8, 1.9, 2.2]]
 
     plotter.add_mesh(catheter_mesh, color="#333333",
                      smooth_shading=True, specular=0.5)
@@ -304,11 +304,11 @@ def main():
         add_elegant_velocity(
             plotter, pos, [0.1, 0.2, 0.1] if i == 0 else [-0.2, -0.1, 0.2])
 
-    # roi_plane = pv.Plane(center=tip_pos, direction=tip_dir,
-    #                      i_size=0.6, j_size=0.6)
-    # plotter.add_mesh(roi_plane, color="lightgray",
-    #                  style="wireframe", line_width=1, opacity=0.5)
-    # plotter.add_mesh(roi_plane, color="lightgray", opacity=0.05)
+    roi_plane = pv.Plane(center=tip_pos, direction=tip_dir,
+                         i_size=0.6, j_size=0.6)
+    plotter.add_mesh(roi_plane, color="lightgray",
+                     style="wireframe", line_width=1, opacity=0.5)
+    plotter.add_mesh(roi_plane, color="lightgray", opacity=0.05)
     plotter.add_axes()
     plotter.camera_position = [
         (6.0, 4.0, 5.0), (1.0, 1.2, 1.2), (0.0, 0.0, 1.0)]
@@ -331,53 +331,43 @@ def main():
                          opacity=opacity, smooth_shading=True)
 
     np.random.seed(42)
-    # 障碍物数量下调，并按扇区均匀分布，避免局部聚集
-    n_obs = 24
-    base_angles = np.linspace(0, 2*np.pi, n_obs, endpoint=False)
-    for base_angle in base_angles:
-        placed = False
-        for _ in range(12):
-            angle = base_angle + np.random.uniform(-0.12, 0.12)
-            dist = np.random.uniform(0.09, 0.27)
-            ox, oy = dist * np.cos(angle), dist * np.sin(angle)
-            base_r = np.random.uniform(0.008, 0.014)
+    count, attempts = 0, 0
+    while count < 35 and attempts < 200:
+        attempts += 1
+        angle = np.random.uniform(0, 2*np.pi)
+        dist = np.random.uniform(0.07, 0.28)
+        ox, oy = dist * np.cos(angle), dist * np.sin(angle)
+        base_r = np.random.uniform(0.008, 0.016)
 
-            is_overlapping_band = False
-            if ox < 0.05:
-                t = ox / -BAND_LENGTH
-                if 0 <= t <= 1.1:
-                    band_y = 0.0 - 0.06 * t * np.sin(np.pi * t)
-                    # 与渐变带宽度公式保持一致
-                    band_w = cat_radius * (1 - (1 - BAND_END_K) * t ** 1.5)
-                    if abs(oy - band_y) < (band_w + base_r + 0.01):
-                        is_overlapping_band = True
-            if is_overlapping_band:
-                continue
-
-            local_pos = [ox, oy, tip_pos[2] + 0.001]
-            rand_val = np.random.rand()
-            if rand_val < 0.33:
-                obs_p = pv.Circle(radius=base_r, resolution=50)
-                obs_p.points[:, 0] += ox
-                obs_p.points[:, 1] += oy
-                obs_p.points[:, 2] = tip_pos[2] + 0.001
-            elif rand_val < 0.66:
-                ratio = np.random.uniform(0.7, 1.3)
-                w, h = base_r, base_r * ratio
-                z = tip_pos[2] + 0.001
-                obs_p = pv.Box(
-                    bounds=[ox-w, ox+w, oy-h, oy+h, z-0.0005, z+0.0005])
-            else:
-                obs_p = create_regular_polygon(local_pos, base_r, nsides=3)
-
-            plotter.add_mesh(obs_p, color="red", style="wireframe",
-                             line_width=1, opacity=0.8)
-            placed = True
-            break
-
-        # 如果该扇区多次尝试都失败，则跳过，保持整体均匀布局优先
-        if not placed:
+        is_overlapping_band = False
+        if ox < 0.05:
+            t = ox / -BAND_LENGTH
+            if 0 <= t <= 1.1:
+                band_y = 0.0 - 0.06 * t * np.sin(np.pi * t)
+                # 与渐变带宽度公式保持一致
+                band_w = cat_radius * (1 - (1 - BAND_END_K) * t ** 1.5)
+                if abs(oy - band_y) < (band_w + base_r + 0.01):
+                    is_overlapping_band = True
+        if is_overlapping_band:
             continue
+
+        local_pos = [ox, oy, tip_pos[2] + 0.001]
+        rand_val = np.random.rand()
+        if rand_val < 0.33:
+            obs_p = pv.Circle(radius=base_r, resolution=50)
+            obs_p.points[:, 0] += ox
+            obs_p.points[:, 1] += oy
+            obs_p.points[:, 2] = tip_pos[2] + 0.001
+        elif rand_val < 0.66:
+            ratio = np.random.uniform(0.7, 1.3)
+            w, h = base_r, base_r * ratio
+            z = tip_pos[2] + 0.001
+            obs_p = pv.Box(bounds=[ox-w, ox+w, oy-h, oy+h, z-0.0005, z+0.0005])
+        else:
+            obs_p = create_regular_polygon(local_pos, base_r, nsides=3)
+        plotter.add_mesh(obs_p, color="red", style="wireframe",
+                         line_width=1, opacity=0.8)
+        count += 1
 
     # 3. 探测范围圆（改为淡绿色虚线圆）
     n_dashes = 40
