@@ -260,10 +260,9 @@ def main():
         np.linalg.norm(smooth_pts[-1] - smooth_pts[-10])
 
     obs_size = cat_radius * 1.5
-    # 障碍物位置
-    box_pos = [[1.4, 2.0, 1.8]]     # 立方体的位置
-    sphere_pos = [[1.6, 1.8, 2.6]]  # 球的位置
-    tetra_pos = [[0.8, 2.15, 2.2]]   # 四面体的位置
+    box_pos = [[1.4, 2.0, 1.8]]     # 0.6, 0.6, 1.0],
+    sphere_pos = [[1.6, 1.8, 2.4]]  # , [1.1, 0.6, 1.8]
+    tetra_pos = [[0.8, 1.9, 2.2]]   # , [2.2, 1.5, 2.0]
 
     plotter.add_mesh(catheter_mesh, color="#333333",
                      smooth_shading=True, specular=0.5)
@@ -284,7 +283,7 @@ def main():
         plotter.add_mesh(b, color="red", style="wireframe",
                          line_width=1, opacity=0.8)
         add_elegant_velocity(
-            plotter, pos, [0.2, -0.1, 0.1] if i == 0 else [-0.1, 0.2, -0.1])  # 立方体的方向的箭头位置
+            plotter, pos, [0.2, -0.1, 0.1] if i == 0 else [-0.1, 0.2, -0.1])
 
     for i, pos in enumerate(sphere_pos):
         s = pv.Sphere(radius=obs_size, center=pos,
@@ -292,7 +291,7 @@ def main():
         plotter.add_mesh(s, color="red", style="wireframe",
                          line_width=0.8, opacity=0.6)
         add_elegant_velocity(
-            plotter, pos, [0.1, 0.2, -0.05] if i == 0 else [0.2, 0.1, -0.1])  # 球的方向的箭头位置
+            plotter, pos, [-0.1, -0.2, 0.1] if i == 0 else [0.2, 0.1, -0.1])
 
     for i, pos in enumerate(tetra_pos):
         s = obs_size * 1.2
@@ -303,7 +302,7 @@ def main():
         plotter.add_mesh(tetra, color="red", style="wireframe",
                          line_width=1, opacity=0.8)
         add_elegant_velocity(
-            plotter, pos, [0.1, 0.2, 0.1] if i == 0 else [-0.2, -0.1, 0.2])  # 四面体的方向的箭头位置
+            plotter, pos, [0.1, 0.2, 0.1] if i == 0 else [-0.2, -0.1, 0.2])
 
     # roi_plane = pv.Plane(center=tip_pos, direction=tip_dir,
     #                      i_size=0.6, j_size=0.6)
@@ -336,7 +335,7 @@ def main():
     base_r = 0.015 * 1.2  # 增大 1.2 倍
 
     # 1. 圆形 (Circle) - 偏左上
-    ox_c, oy_c = -0.1, 0.1 #圆形位置
+    ox_c, oy_c = -0.1, 0.1 #
     obs_circle = pv.Circle(radius=base_r, resolution=50)
     obs_circle.points[:, 0] += ox_c
     obs_circle.points[:, 1] += oy_c
@@ -345,7 +344,7 @@ def main():
                      style="wireframe", line_width=1, opacity=0.8)
 
     # 2. 三角形 (Triangle) - 偏右上
-    ox_t, oy_t = 0.11, 0.06 #三角形位置
+    ox_t, oy_t = 0.11, 0.06
     obs_triangle = create_regular_polygon(
         [ox_t, oy_t, z_obs], base_r * 1.22, nsides=3)  # 仅将三角形尺寸再增大 1.15 倍
     plotter.add_mesh(obs_triangle, color="red",

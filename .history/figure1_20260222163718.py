@@ -260,10 +260,9 @@ def main():
         np.linalg.norm(smooth_pts[-1] - smooth_pts[-10])
 
     obs_size = cat_radius * 1.5
-    # 障碍物位置
-    box_pos = [[1.4, 2.0, 1.8]]     # 立方体的位置
-    sphere_pos = [[1.6, 1.8, 2.6]]  # 球的位置
-    tetra_pos = [[0.8, 2.15, 2.2]]   # 四面体的位置
+    box_pos = [[1.4, 2.0, 1.8]]     # 0.6, 0.6, 1.0],
+    sphere_pos = [[1.6, 1.8, 2.4]]  # , [1.1, 0.6, 1.8]
+    tetra_pos = [[0.8, 1.9, 2.2]]   # , [2.2, 1.5, 2.0]
 
     plotter.add_mesh(catheter_mesh, color="#333333",
                      smooth_shading=True, specular=0.5)
@@ -284,7 +283,7 @@ def main():
         plotter.add_mesh(b, color="red", style="wireframe",
                          line_width=1, opacity=0.8)
         add_elegant_velocity(
-            plotter, pos, [0.2, -0.1, 0.1] if i == 0 else [-0.1, 0.2, -0.1])  # 立方体的方向的箭头位置
+            plotter, pos, [0.2, -0.1, 0.1] if i == 0 else [-0.1, 0.2, -0.1])
 
     for i, pos in enumerate(sphere_pos):
         s = pv.Sphere(radius=obs_size, center=pos,
@@ -292,7 +291,7 @@ def main():
         plotter.add_mesh(s, color="red", style="wireframe",
                          line_width=0.8, opacity=0.6)
         add_elegant_velocity(
-            plotter, pos, [0.1, 0.2, -0.05] if i == 0 else [0.2, 0.1, -0.1])  # 球的方向的箭头位置
+            plotter, pos, [-0.1, -0.2, 0.1] if i == 0 else [0.2, 0.1, -0.1])
 
     for i, pos in enumerate(tetra_pos):
         s = obs_size * 1.2
@@ -303,7 +302,7 @@ def main():
         plotter.add_mesh(tetra, color="red", style="wireframe",
                          line_width=1, opacity=0.8)
         add_elegant_velocity(
-            plotter, pos, [0.1, 0.2, 0.1] if i == 0 else [-0.2, -0.1, 0.2])  # 四面体的方向的箭头位置
+            plotter, pos, [0.1, 0.2, 0.1] if i == 0 else [-0.2, -0.1, 0.2])
 
     # roi_plane = pv.Plane(center=tip_pos, direction=tip_dir,
     #                      i_size=0.6, j_size=0.6)
@@ -336,7 +335,7 @@ def main():
     base_r = 0.015 * 1.2  # 增大 1.2 倍
 
     # 1. 圆形 (Circle) - 偏左上
-    ox_c, oy_c = -0.1, 0.1 #圆形位置
+    ox_c, oy_c = -0.15, 0.20
     obs_circle = pv.Circle(radius=base_r, resolution=50)
     obs_circle.points[:, 0] += ox_c
     obs_circle.points[:, 1] += oy_c
@@ -345,46 +344,55 @@ def main():
                      style="wireframe", line_width=1, opacity=0.8)
 
     # 2. 三角形 (Triangle) - 偏右上
-    ox_t, oy_t = 0.11, 0.06 #三角形位置
+    ox_t, oy_t = 0.22, 0.15
     obs_triangle = create_regular_polygon(
-        [ox_t, oy_t, z_obs], base_r * 1.22, nsides=3)  # 仅将三角形尺寸再增大 1.15 倍
+        [ox_t, oy_t, z_obs], base_r, nsides=3)
     plotter.add_mesh(obs_triangle, color="red",
                      style="wireframe", line_width=1, opacity=0.8)
 
     # 3. 正方形 (Square) - 偏左下
-    ox_s, oy_s = -0.05, -0.16
+    ox_s, oy_s = -0.18, -0.12
     obs_square = pv.Box(bounds=[ox_s-base_r, ox_s+base_r,
                         oy_s-base_r, oy_s+base_r, z_obs-0.0005, z_obs+0.0005])
     plotter.add_mesh(obs_square, color="red",
                      style="wireframe", line_width=1, opacity=0.8)
 
-    # 在右侧图左下角添加二维坐标轴 (X, Y) - 优化为 2D 线条风格，避免出现矩形块
-    axis_origin = [-0.45, -0.45, z_obs]
+    # 在右侧图左下角添加二维坐标轴 (X, Y) - 优化为纯 2D 风格，彻底去除 3D 带来的矩形块
+    axis_origin = [-0.25, -0.25, z_obs]
     axis_length = 0.08
 
-    # X 轴：红色线条
+    # 1. 绘制轴线 (使用 Line)
     x_axis = pv.Line(
         axis_origin, [axis_origin[0] + axis_length, axis_origin[1], z_obs])
-    # Y 轴：绿色线条
     y_axis = pv.Line(
         axis_origin, [axis_origin[0], axis_origin[1] + axis_length, z_obs])
+    plotter.add_mesh(x_axis, color="red", line_width=2)
+    plotter.add_mesh(y_axis, color="green", line_width=2)
 
-    plotter.add_mesh(x_axis, color="red", line_width=3)
-    plotter.add_mesh(y_axis, color="green", line_width=3)
-
-    # 添加箭头尖端：用两条斜线拼成 V 形，纯线条无厚度
+    # 2. 绘制箭头尖端 (使用 2D 的三角形 PolyData，而不是 3D 的 Cone)
     tip_size = 0.012
-    x_end = [axis_origin[0] + axis_length, axis_origin[1], z_obs]
-    x_tip1 = pv.Line([x_end[0] - tip_size, x_end[1] + tip_size, z_obs], x_end)
-    x_tip2 = pv.Line([x_end[0] - tip_size, x_end[1] - tip_size, z_obs], x_end)
-    plotter.add_mesh(x_tip1, color="red", line_width=3)
-    plotter.add_mesh(x_tip2, color="red", line_width=3)
 
-    y_end = [axis_origin[0], axis_origin[1] + axis_length, z_obs]
-    y_tip1 = pv.Line([y_end[0] - tip_size, y_end[1] - tip_size, z_obs], y_end)
-    y_tip2 = pv.Line([y_end[0] + tip_size, y_end[1] - tip_size, z_obs], y_end)
-    plotter.add_mesh(y_tip1, color="green", line_width=3)
-    plotter.add_mesh(y_tip2, color="green", line_width=3)
+    # X 轴箭头 (三角形)
+    x_tip_pts = np.array([
+        [axis_origin[0] + axis_length, axis_origin[1], z_obs],
+        [axis_origin[0] + axis_length - tip_size,
+            axis_origin[1] + tip_size*0.5, z_obs],
+        [axis_origin[0] + axis_length - tip_size,
+            axis_origin[1] - tip_size*0.5, z_obs]
+    ])
+    x_tip = pv.PolyData(x_tip_pts, [3, 0, 1, 2])
+
+    # Y 轴箭头 (三角形)
+    y_tip_pts = np.array([
+        [axis_origin[0], axis_origin[1] + axis_length, z_obs],
+        [axis_origin[0] - tip_size*0.5, axis_origin[1] +
+            axis_length - tip_size, z_obs],
+        [axis_origin[0] + tip_size*0.5, axis_origin[1] + axis_length - tip_size, z_obs]
+    ])
+    y_tip = pv.PolyData(y_tip_pts, [3, 0, 1, 2])
+
+    plotter.add_mesh(x_tip, color="red")
+    plotter.add_mesh(y_tip, color="green")
 
     # 标签颜色与坐标轴对应
     plotter.add_point_labels([[axis_origin[0] + axis_length + 0.02, axis_origin[1], z_obs]],
