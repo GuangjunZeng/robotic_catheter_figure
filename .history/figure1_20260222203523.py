@@ -377,7 +377,7 @@ def main():
                         oy_s-base_r, oy_s+base_r, z_obs-0.0005, z_obs+0.0005])
     plotter.add_mesh(obs_square, color="red",
                      style="wireframe", line_width=1, opacity=0.8)
-    add_2d_velocity(plotter, [ox_s, oy_s, z_obs], [0.2, 0.6])
+    add_2d_velocity(plotter, [ox_s, oy_s, z_obs], [0.3, 0.6])
 
     # 在右侧图左下角添加二维坐标轴 (X, Y) - 优化为 2D 线条风格，避免出现矩形块
     axis_origin = [-0.45, -0.45, z_obs]

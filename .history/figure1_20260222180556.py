@@ -284,7 +284,7 @@ def main():
         plotter.add_mesh(b, color="red", style="wireframe",
                          line_width=1, opacity=0.8)
         add_elegant_velocity(
-            plotter, pos, [0.01, -0.001, 0.1] if i == 0 else [-0.1, 0.2, -0.1])  # 立方体的方向的箭头位置
+            plotter, pos, [0.02, 0.00, 0.1] if i == 0 else [-0.1, 0.2, -0.1])  # 立方体的方向的箭头位置
 
     for i, pos in enumerate(sphere_pos):
         s = pv.Sphere(radius=obs_size, center=pos,
@@ -335,41 +335,21 @@ def main():
     z_obs = tip_pos[2] + 0.001
     base_r = 0.015 * 1.2  # 增大 1.2 倍
 
-    # 2D 箭头函数：纯线条实现，无任何 3D 几何体，避免矩形块
-    def add_2d_velocity(plotter, center, direction, size=0.04, gap=0.025): #箭头后端的长度
-        d = np.array([direction[0], direction[1], 0], dtype=float)
-        d = d / np.linalg.norm(d)
-        start_pt = np.array([center[0], center[1], z_obs]) + d * gap
-        end_pt = start_pt + d * size
-        # 箭杆
-        line = pv.Line(start_pt, end_pt)
-        plotter.add_mesh(line, color="hotpink", line_width=2)
-        # V 形箭头尖端（纯线条）
-        perp = np.array([-d[1], d[0], 0])
-        tip_size = size * 0.2
-        tip1 = pv.Line(end_pt - d * tip_size + perp * (tip_size * 0.6), end_pt)
-        tip2 = pv.Line(end_pt - d * tip_size - perp *
-                       (tip_size * 0.6), end_pt)  # V 形尖端角度
-        plotter.add_mesh(tip1, color="hotpink", line_width=2)
-        plotter.add_mesh(tip2, color="hotpink", line_width=2)
-
     # 1. 圆形 (Circle) - 偏左上
-    ox_c, oy_c = -0.08, 0.1  # 圆形位置
+    ox_c, oy_c = -0.1, 0.1 #圆形位置
     obs_circle = pv.Circle(radius=base_r, resolution=50)
     obs_circle.points[:, 0] += ox_c
     obs_circle.points[:, 1] += oy_c
     obs_circle.points[:, 2] = z_obs
     plotter.add_mesh(obs_circle, color="red",
                      style="wireframe", line_width=1, opacity=0.8)
-    add_2d_velocity(plotter, [ox_c, oy_c, z_obs], [0.6, -0.5])
 
     # 2. 三角形 (Triangle) - 偏右上
-    ox_t, oy_t = 0.11, 0.06  # 三角形位置
+    ox_t, oy_t = 0.11, 0.06 #三角形位置
     obs_triangle = create_regular_polygon(
         [ox_t, oy_t, z_obs], base_r * 1.22, nsides=3)  # 仅将三角形尺寸再增大 1.15 倍
     plotter.add_mesh(obs_triangle, color="red",
                      style="wireframe", line_width=1, opacity=0.8)
-    add_2d_velocity(plotter, [ox_t, oy_t, z_obs], [-0.4, -0.6]) #三角形的箭头的位置
 
     # 3. 正方形 (Square) - 偏左下
     ox_s, oy_s = -0.05, -0.16
@@ -377,7 +357,6 @@ def main():
                         oy_s-base_r, oy_s+base_r, z_obs-0.0005, z_obs+0.0005])
     plotter.add_mesh(obs_square, color="red",
                      style="wireframe", line_width=1, opacity=0.8)
-    add_2d_velocity(plotter, [ox_s, oy_s, z_obs], [0.2, 0.6])
 
     # 在右侧图左下角添加二维坐标轴 (X, Y) - 优化为 2D 线条风格，避免出现矩形块
     axis_origin = [-0.45, -0.45, z_obs]
