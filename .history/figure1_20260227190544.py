@@ -250,30 +250,11 @@ def main():
     plotter.set_background("white")
     plotter.add_text("Global Workspace", font_size=12, color="black")
 
-    # 重新设计控制点：确保严格的单一弯曲 (C型大弧度)
-    # 目标：仅在 XOZ 平面的 +y 侧空间活动，且只有一个弯曲
-    # 起点 P0 在 [0.5, 0.0, 0.5]，位于 XOZ 平面上 (y=0)
-    catheter_points = np.array([
-        [0.5, 0.0, 0.5],    # P0: 起点 (y=0, 位于 XOZ 平面)
-        [0.5, 0.8, 0.5],    # P1: 沿 +y 方向垂直伸出一段，确保与 XOZ 平面垂直
-        [1.2, 1.8, 1.2],    # P2: 向 +x, +y, +z 方向平滑过渡，拉开弧度
-        [2.0, 2.2, 2.5]     # P3: 末端 (y=2.2, 始终在 +y 空间)
-    ])
+    catheter_points = np.array([[0, 0, 0], [0.2, 0.5, 0.8], [0.5, 1.2, 1.5],
+                                [1.2, 1.8, 2.0], [2.0, 2.2, 2.5]])
     cat_radius = 0.04
     catheter_mesh, smooth_pts = create_catheter_model(
         catheter_points, radius=cat_radius)
-
-    # --- 新增：起始固定平面 (改为正方形网格，位于 XOZ 平面) ---
-    # 创建一个以起点为中心的正方形网格平面，法线为 [0, 1, 0] (指向 y 轴)
-    grid_size = 1.0
-    base_plane = pv.Plane(center=[0.5, 0.0, 0.5], direction=[0, 1, 0],
-                          i_size=grid_size, j_size=grid_size,
-                          i_resolution=10, j_resolution=10)
-    plotter.add_mesh(base_plane, color="lightgray", opacity=0.15,
-                     style="surface")
-    plotter.add_mesh(base_plane, color="gray", opacity=0.3,
-                     style="wireframe", line_width=1)
-    # -----------------------
     tip_pos = smooth_pts[-1]
     tip_dir = (smooth_pts[-1] - smooth_pts[-10]) / \
         np.linalg.norm(smooth_pts[-1] - smooth_pts[-10])
@@ -329,13 +310,9 @@ def main():
     # plotter.add_mesh(roi_plane, color="lightgray",
     #                  style="wireframe", line_width=1, opacity=0.5)
     # plotter.add_mesh(roi_plane, color="lightgray", opacity=0.05)
-    # --- 辅助显示：坐标轴与相机视角优化 ---
-    plotter.add_axes(line_width=4)  # 移除不支持的 label_font_size 参数
-    # 调整相机位置，使其更清晰地看到 XY 平面的延展
-    # (6.0, 4.0, 5.0) 是相机位置, (1.0, 1.2, 1.2) 是焦点, (0.0, 0.0, 1.0) 是向上方向
+    plotter.add_axes()
     plotter.camera_position = [
         (6.0, 4.0, 5.0), (1.0, 1.2, 1.2), (0.0, 0.0, 1.0)]
-    # ------------------------------------
 
     # --- 右侧视口: 尖端截面细节 ---
     plotter.subplot(0, 1)
@@ -391,7 +368,7 @@ def main():
     obs_triangle = create_regular_polygon(
         [ox_t, oy_t, z_obs], base_r * 1.22, nsides=3)  # 仅将三角形尺寸再增大 1.15 倍
     plotter.add_mesh(obs_triangle, color="red",
-                     style="wireframe", line_width=4, opacity=0.8)
+                     style="wireframe", line_width=5, opacity=0.8)
     add_2d_velocity(plotter, [ox_t, oy_t, z_obs], [-0.4, -0.6])  # 三角形的箭头的位置
 
     # 3. 正方形 (Square) - 偏左下
@@ -399,7 +376,7 @@ def main():
     obs_square = pv.Box(bounds=[ox_s-base_r, ox_s+base_r,
                         oy_s-base_r, oy_s+base_r, z_obs-0.0005, z_obs+0.0005])
     plotter.add_mesh(obs_square, color="red",
-                     style="wireframe", line_width=4, opacity=0.8)
+                     style="wireframe", line_width=5, opacity=0.8)
     add_2d_velocity(plotter, [ox_s, oy_s, z_obs], [0.2, 0.6])
 
     # --- 新增：Catheter 尖端运动方向箭头 (粗绿色箭头) ---

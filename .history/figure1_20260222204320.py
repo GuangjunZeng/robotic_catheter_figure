@@ -250,30 +250,11 @@ def main():
     plotter.set_background("white")
     plotter.add_text("Global Workspace", font_size=12, color="black")
 
-    # 重新设计控制点：确保严格的单一弯曲 (C型大弧度)
-    # 目标：仅在 XOZ 平面的 +y 侧空间活动，且只有一个弯曲
-    # 起点 P0 在 [0.5, 0.0, 0.5]，位于 XOZ 平面上 (y=0)
-    catheter_points = np.array([
-        [0.5, 0.0, 0.5],    # P0: 起点 (y=0, 位于 XOZ 平面)
-        [0.5, 0.8, 0.5],    # P1: 沿 +y 方向垂直伸出一段，确保与 XOZ 平面垂直
-        [1.2, 1.8, 1.2],    # P2: 向 +x, +y, +z 方向平滑过渡，拉开弧度
-        [2.0, 2.2, 2.5]     # P3: 末端 (y=2.2, 始终在 +y 空间)
-    ])
+    catheter_points = np.array([[0, 0, 0], [0.2, 0.5, 0.8], [0.5, 1.2, 1.5],
+                                [1.2, 1.8, 2.0], [2.0, 2.2, 2.5]])
     cat_radius = 0.04
     catheter_mesh, smooth_pts = create_catheter_model(
         catheter_points, radius=cat_radius)
-
-    # --- 新增：起始固定平面 (改为正方形网格，位于 XOZ 平面) ---
-    # 创建一个以起点为中心的正方形网格平面，法线为 [0, 1, 0] (指向 y 轴)
-    grid_size = 1.0
-    base_plane = pv.Plane(center=[0.5, 0.0, 0.5], direction=[0, 1, 0],
-                          i_size=grid_size, j_size=grid_size,
-                          i_resolution=10, j_resolution=10)
-    plotter.add_mesh(base_plane, color="lightgray", opacity=0.15,
-                     style="surface")
-    plotter.add_mesh(base_plane, color="gray", opacity=0.3,
-                     style="wireframe", line_width=1)
-    # -----------------------
     tip_pos = smooth_pts[-1]
     tip_dir = (smooth_pts[-1] - smooth_pts[-10]) / \
         np.linalg.norm(smooth_pts[-1] - smooth_pts[-10])
@@ -292,7 +273,7 @@ def main():
         start_pt = np.array(center) + direction * obs_size * 1.3
         end_pt = start_pt + direction * size
         line = pv.Line(start_pt, end_pt)
-        plotter.add_mesh(line, color="hotpink", line_width=4)
+        plotter.add_mesh(line, color="hotpink", line_width=2)
         cone = pv.Cone(center=end_pt, direction=direction,
                        height=size*0.4, radius=size*0.12, resolution=20)
         plotter.add_mesh(cone, color="hotpink")
@@ -301,15 +282,15 @@ def main():
         b = pv.Box(bounds=[pos[0]-obs_size, pos[0]+obs_size, pos[1]-obs_size,
                            pos[1]+obs_size, pos[2]-obs_size, pos[2]+obs_size])
         plotter.add_mesh(b, color="red", style="wireframe",
-                         line_width=3, opacity=0.8)
+                         line_width=1, opacity=0.8)
         add_elegant_velocity(
             plotter, pos, [0.01, -0.001, 0.1] if i == 0 else [-0.1, 0.2, -0.1])  # 立方体的方向的箭头位置
 
     for i, pos in enumerate(sphere_pos):
         s = pv.Sphere(radius=obs_size, center=pos,
-                      phi_resolution=7, theta_resolution=10)
+                      phi_resolution=10, theta_resolution=10)
         plotter.add_mesh(s, color="red", style="wireframe",
-                         line_width=1.5, opacity=0.6)
+                         line_width=0.8, opacity=0.6)
         add_elegant_velocity(
             plotter, pos, [0.1, 0.2, -0.05] if i == 0 else [0.2, 0.1, -0.1])  # 球的方向的箭头位置
 
@@ -320,7 +301,7 @@ def main():
         faces = np.array([3, 0, 1, 2, 3, 0, 1, 3, 3, 0, 2, 3, 3, 1, 2, 3])
         tetra = pv.PolyData(pts, faces)
         plotter.add_mesh(tetra, color="red", style="wireframe",
-                         line_width=3, opacity=0.8)
+                         line_width=1, opacity=0.8)
         add_elegant_velocity(
             plotter, pos, [0.2, 0.03, -0.05] if i == 0 else [-0.2, -0.1, 0.2])  # 四面体的方向的箭头位置
 
@@ -329,13 +310,9 @@ def main():
     # plotter.add_mesh(roi_plane, color="lightgray",
     #                  style="wireframe", line_width=1, opacity=0.5)
     # plotter.add_mesh(roi_plane, color="lightgray", opacity=0.05)
-    # --- 辅助显示：坐标轴与相机视角优化 ---
-    plotter.add_axes(line_width=4)  # 移除不支持的 label_font_size 参数
-    # 调整相机位置，使其更清晰地看到 XY 平面的延展
-    # (6.0, 4.0, 5.0) 是相机位置, (1.0, 1.2, 1.2) 是焦点, (0.0, 0.0, 1.0) 是向上方向
+    plotter.add_axes()
     plotter.camera_position = [
         (6.0, 4.0, 5.0), (1.0, 1.2, 1.2), (0.0, 0.0, 1.0)]
-    # ------------------------------------
 
     # --- 右侧视口: 尖端截面细节 ---
     plotter.subplot(0, 1)
@@ -366,32 +343,32 @@ def main():
         end_pt = start_pt + d * size
         # 箭杆
         line = pv.Line(start_pt, end_pt)
-        plotter.add_mesh(line, color="hotpink", line_width=3)
+        plotter.add_mesh(line, color="hotpink", line_width=2)
         # V 形箭头尖端（纯线条）
         perp = np.array([-d[1], d[0], 0])
         tip_size = size * 0.2
         tip1 = pv.Line(end_pt - d * tip_size + perp * (tip_size * 0.6), end_pt)
         tip2 = pv.Line(end_pt - d * tip_size - perp *
                        (tip_size * 0.6), end_pt)  # V 形尖端角度
-        plotter.add_mesh(tip1, color="hotpink", line_width=4)
-        plotter.add_mesh(tip2, color="hotpink", line_width=4)
+        plotter.add_mesh(tip1, color="hotpink", line_width=2)
+        plotter.add_mesh(tip2, color="hotpink", line_width=2)
 
     # 1. 圆形 (Circle) - 偏左上
-    ox_c, oy_c = -0.05, 0.1  # 圆形位置
+    ox_c, oy_c = -0.08, 0.1  # 圆形位置
     obs_circle = pv.Circle(radius=base_r, resolution=50)
     obs_circle.points[:, 0] += ox_c
     obs_circle.points[:, 1] += oy_c
     obs_circle.points[:, 2] = z_obs
     plotter.add_mesh(obs_circle, color="red",
-                     style="wireframe", line_width=4, opacity=0.8)
-    add_2d_velocity(plotter, [ox_c, oy_c, z_obs], [0.7, -0.5])  # 圆形的箭头的位置
+                     style="wireframe", line_width=1, opacity=0.8)
+    add_2d_velocity(plotter, [ox_c, oy_c, z_obs], [0.6, -0.5])
 
     # 2. 三角形 (Triangle) - 偏右上
     ox_t, oy_t = 0.11, 0.06  # 三角形位置
     obs_triangle = create_regular_polygon(
         [ox_t, oy_t, z_obs], base_r * 1.22, nsides=3)  # 仅将三角形尺寸再增大 1.15 倍
     plotter.add_mesh(obs_triangle, color="red",
-                     style="wireframe", line_width=4, opacity=0.8)
+                     style="wireframe", line_width=1, opacity=0.8)
     add_2d_velocity(plotter, [ox_t, oy_t, z_obs], [-0.4, -0.6])  # 三角形的箭头的位置
 
     # 3. 正方形 (Square) - 偏左下
@@ -399,12 +376,12 @@ def main():
     obs_square = pv.Box(bounds=[ox_s-base_r, ox_s+base_r,
                         oy_s-base_r, oy_s+base_r, z_obs-0.0005, z_obs+0.0005])
     plotter.add_mesh(obs_square, color="red",
-                     style="wireframe", line_width=4, opacity=0.8)
+                     style="wireframe", line_width=1, opacity=0.8)
     add_2d_velocity(plotter, [ox_s, oy_s, z_obs], [0.2, 0.6])
 
     # --- 新增：Catheter 尖端运动方向箭头 (粗绿色箭头) ---
     # 设定在中心圆的右下方
-    tip_action_dir = np.array([0.4, -0.65, 0.0])  # 避障方向
+    tip_action_dir = np.array([0.4, -0.6, 0.0])  # 避障方向
     tip_action_dir = tip_action_dir / np.linalg.norm(tip_action_dir)
 
     # 起点稍微离开中心圆边缘 (cat_radius=0.04)

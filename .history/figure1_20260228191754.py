@@ -250,23 +250,22 @@ def main():
     plotter.set_background("white")
     plotter.add_text("Global Workspace", font_size=12, color="black")
 
-    # 重新设计控制点：确保严格的单一弯曲 (C型大弧度)
-    # 目标：仅在 XOZ 平面的 +y 侧空间活动，且只有一个弯曲
-    # 起点 P0 在 [0.5, 0.0, 0.5]，位于 XOZ 平面上 (y=0)
+    # 重新设计控制点：确保严格的单一弯曲 (C型曲线)
+    # 通过保持 X, Y, Z 坐标的单调且均匀的增长，避免样条插值产生 S 型摆动
     catheter_points = np.array([
-        [0.5, 0.0, 0.5],    # P0: 起点 (y=0, 位于 XOZ 平面)
-        [0.5, 0.8, 0.5],    # P1: 沿 +y 方向垂直伸出一段，确保与 XOZ 平面垂直
-        [1.2, 1.8, 1.2],    # P2: 向 +x, +y, +z 方向平滑过渡，拉开弧度
-        [2.0, 2.2, 2.5]     # P3: 末端 (y=2.2, 始终在 +y 空间)
+        [0.5, 0.5, 0.0],    # P0: 起点
+        [1.0, 1.0, 0.8],    # P1: 1/3 处，保持平滑延伸
+        [1.5, 1.6, 1.6],    # P2: 2/3 处，平滑转向
+        [2.0, 2.2, 2.5]     # P3: 末端 (保持不变)
     ])
     cat_radius = 0.04
     catheter_mesh, smooth_pts = create_catheter_model(
         catheter_points, radius=cat_radius)
 
-    # --- 新增：起始固定平面 (改为正方形网格，位于 XOZ 平面) ---
-    # 创建一个以起点为中心的正方形网格平面，法线为 [0, 1, 0] (指向 y 轴)
+    # --- 新增：起始固定平面 (改为正方形网格) ---
+    # 创建一个以起点为中心的正方形网格平面
     grid_size = 1.0
-    base_plane = pv.Plane(center=[0.5, 0.0, 0.5], direction=[0, 1, 0],
+    base_plane = pv.Plane(center=[0.5, 0.5, 0.0], direction=[0, 0, 1],
                           i_size=grid_size, j_size=grid_size,
                           i_resolution=10, j_resolution=10)
     plotter.add_mesh(base_plane, color="lightgray", opacity=0.15,
@@ -329,13 +328,9 @@ def main():
     # plotter.add_mesh(roi_plane, color="lightgray",
     #                  style="wireframe", line_width=1, opacity=0.5)
     # plotter.add_mesh(roi_plane, color="lightgray", opacity=0.05)
-    # --- 辅助显示：坐标轴与相机视角优化 ---
-    plotter.add_axes(line_width=4)  # 移除不支持的 label_font_size 参数
-    # 调整相机位置，使其更清晰地看到 XY 平面的延展
-    # (6.0, 4.0, 5.0) 是相机位置, (1.0, 1.2, 1.2) 是焦点, (0.0, 0.0, 1.0) 是向上方向
+    plotter.add_axes()
     plotter.camera_position = [
         (6.0, 4.0, 5.0), (1.0, 1.2, 1.2), (0.0, 0.0, 1.0)]
-    # ------------------------------------
 
     # --- 右侧视口: 尖端截面细节 ---
     plotter.subplot(0, 1)

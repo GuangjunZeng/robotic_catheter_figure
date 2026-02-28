@@ -250,29 +250,24 @@ def main():
     plotter.set_background("white")
     plotter.add_text("Global Workspace", font_size=12, color="black")
 
-    # 重新设计控制点：确保严格的单一弯曲 (C型大弧度)
-    # 目标：仅在 XOZ 平面的 +y 侧空间活动，且只有一个弯曲
-    # 起点 P0 在 [0.5, 0.0, 0.5]，位于 XOZ 平面上 (y=0)
+    # 重新设计控制点：前段较直，弯曲集中在末端 (符合物理规律)
+    # 起点 [0,0,0], 中间点拉开距离使前段较直, 末端保持 [2.0, 2.2, 2.5] 不变
     catheter_points = np.array([
-        [0.5, 0.0, 0.5],    # P0: 起点 (y=0, 位于 XOZ 平面)
-        [0.5, 0.8, 0.5],    # P1: 沿 +y 方向垂直伸出一段，确保与 XOZ 平面垂直
-        [1.2, 1.8, 1.2],    # P2: 向 +x, +y, +z 方向平滑过渡，拉开弧度
-        [2.0, 2.2, 2.5]     # P3: 末端 (y=2.2, 始终在 +y 空间)
+        [0.0, 0.0, 0.0],    # P0: 起点 (固定在平面)
+        [0.8, 0.9, 1.0],    # P1: 延伸段 (保持较直)
+        [1.6, 1.8, 2.0],    # P2: 弯曲起始点
+        [2.0, 2.2, 2.5]     # P3: 末端 (位置与原代码一致)
     ])
     cat_radius = 0.04
     catheter_mesh, smooth_pts = create_catheter_model(
         catheter_points, radius=cat_radius)
 
-    # --- 新增：起始固定平面 (改为正方形网格，位于 XOZ 平面) ---
-    # 创建一个以起点为中心的正方形网格平面，法线为 [0, 1, 0] (指向 y 轴)
-    grid_size = 1.0
-    base_plane = pv.Plane(center=[0.5, 0.0, 0.5], direction=[0, 1, 0],
-                          i_size=grid_size, j_size=grid_size,
-                          i_resolution=10, j_resolution=10)
-    plotter.add_mesh(base_plane, color="lightgray", opacity=0.15,
-                     style="surface")
-    plotter.add_mesh(base_plane, color="gray", opacity=0.3,
-                     style="wireframe", line_width=1)
+    # --- 新增：起始固定平面 ---
+    # 在原点 [0,0,0] 处添加一个半透明的基座平面
+    base_plane = pv.Disc(center=[0, 0, 0], inner=0, outer=0.5,
+                         normal=[0.8, 0.9, 1.0], c_res=100)  # 法线指向导管起始方向
+    plotter.add_mesh(base_plane, color="lightgray", opacity=0.3,
+                     style="surface", show_edges=True, line_width=1)
     # -----------------------
     tip_pos = smooth_pts[-1]
     tip_dir = (smooth_pts[-1] - smooth_pts[-10]) / \
@@ -329,13 +324,9 @@ def main():
     # plotter.add_mesh(roi_plane, color="lightgray",
     #                  style="wireframe", line_width=1, opacity=0.5)
     # plotter.add_mesh(roi_plane, color="lightgray", opacity=0.05)
-    # --- 辅助显示：坐标轴与相机视角优化 ---
-    plotter.add_axes(line_width=4)  # 移除不支持的 label_font_size 参数
-    # 调整相机位置，使其更清晰地看到 XY 平面的延展
-    # (6.0, 4.0, 5.0) 是相机位置, (1.0, 1.2, 1.2) 是焦点, (0.0, 0.0, 1.0) 是向上方向
+    plotter.add_axes()
     plotter.camera_position = [
         (6.0, 4.0, 5.0), (1.0, 1.2, 1.2), (0.0, 0.0, 1.0)]
-    # ------------------------------------
 
     # --- 右侧视口: 尖端截面细节 ---
     plotter.subplot(0, 1)

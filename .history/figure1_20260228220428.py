@@ -250,23 +250,23 @@ def main():
     plotter.set_background("white")
     plotter.add_text("Global Workspace", font_size=12, color="black")
 
-    # 重新设计控制点：确保严格的单一弯曲 (C型大弧度)
-    # 目标：仅在 XOZ 平面的 +y 侧空间活动，且只有一个弯曲
-    # 起点 P0 在 [0.5, 0.0, 0.5]，位于 XOZ 平面上 (y=0)
+    # 重新设计控制点：强化单一弯曲 (C型大弧度)
+    # 通过将中间点 P1, P2 向外侧推，强制样条曲线划出一个饱满的弧形
+    # 起点 P0 设在 [0.5, 0.5, 0.0]，位于 XOY 平面上
     catheter_points = np.array([
-        [0.5, 0.0, 0.5],    # P0: 起点 (y=0, 位于 XOZ 平面)
-        [0.5, 0.8, 0.5],    # P1: 沿 +y 方向垂直伸出一段，确保与 XOZ 平面垂直
-        [1.2, 1.8, 1.2],    # P2: 向 +x, +y, +z 方向平滑过渡，拉开弧度
-        [2.0, 2.2, 2.5]     # P3: 末端 (y=2.2, 始终在 +y 空间)
+        [0.5, 0.5, 0.0],    # P0: 起点 (固定在 XOY 平面)
+        [0.5, 0.5, 1.0],    # P1: 垂直向上延伸一段，确保与平面垂直
+        [0.6, 1.8, 1.8],    # P2: 向 Y 轴大幅度偏移，拉开弧度
+        [2.0, 2.2, 2.5]     # P3: 末端 (保持不变)
     ])
     cat_radius = 0.04
     catheter_mesh, smooth_pts = create_catheter_model(
         catheter_points, radius=cat_radius)
 
-    # --- 新增：起始固定平面 (改为正方形网格，位于 XOZ 平面) ---
-    # 创建一个以起点为中心的正方形网格平面，法线为 [0, 1, 0] (指向 y 轴)
+    # --- 新增：起始固定平面 (改为正方形网格，位于 XOY 平面) ---
+    # 创建一个以起点为中心的正方形网格平面，法线为 [0, 0, 1]
     grid_size = 1.0
-    base_plane = pv.Plane(center=[0.5, 0.0, 0.5], direction=[0, 1, 0],
+    base_plane = pv.Plane(center=[0.5, 0.5, 0.0], direction=[0, 0, 1],
                           i_size=grid_size, j_size=grid_size,
                           i_resolution=10, j_resolution=10)
     plotter.add_mesh(base_plane, color="lightgray", opacity=0.15,
