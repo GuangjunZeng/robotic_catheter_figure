@@ -338,7 +338,7 @@ def main():
         plotter.add_mesh(tetra, color="red", style="wireframe",
                          line_width=3, opacity=0.8)
         add_elegant_velocity(
-            plotter, pos, [0.15, -0.03, -0.05] if i == 0 else [-0.2, -0.1, 0.2])  # 四面体的方向的箭头位置
+            plotter, pos, [0.2, -0.03, -0.05] if i == 0 else [-0.2, -0.1, 0.2])  # 四面体的方向的箭头位置
 
     # roi_plane = pv.Plane(center=tip_pos, direction=tip_dir,
     #                      i_size=0.6, j_size=0.6)

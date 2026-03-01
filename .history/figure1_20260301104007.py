@@ -287,7 +287,7 @@ def main():
     obs_size = cat_radius * 1.5
     # 障碍物位置
     box_pos = [[1.4, 2.14, 2.21]]     # 立方体的位置
-    sphere_pos = [[1.4, 1.73, 2.82]]  # 球的位置
+    sphere_pos = [[1.4, 1.74, 2.81]]  # 球的位置
     tetra_pos = [[0.55, 2.28, 2.2]]   # 四面体的位置
 
     plotter.add_mesh(catheter_mesh, color="#333333",
@@ -314,7 +314,7 @@ def main():
         plotter.add_mesh(b, color="red", style="wireframe",
                          line_width=3, opacity=0.8)
         add_elegant_velocity(
-            plotter, pos, [-0.06, -0.012, 0.1] if i == 0 else [-0.1, 0.2, -0.1])  # 立方体的方向的箭头位置
+            plotter, pos, [-0.01, -0.012, 0.1] if i == 0 else [-0.1, 0.2, -0.1])  # 立方体的方向的箭头位置
 
     for i, pos in enumerate(sphere_pos):
         s = pv.Sphere(radius=obs_size, center=pos,
@@ -338,7 +338,7 @@ def main():
         plotter.add_mesh(tetra, color="red", style="wireframe",
                          line_width=3, opacity=0.8)
         add_elegant_velocity(
-            plotter, pos, [0.15, -0.03, -0.05] if i == 0 else [-0.2, -0.1, 0.2])  # 四面体的方向的箭头位置
+            plotter, pos, [0.2, 0.03, -0.05] if i == 0 else [-0.2, -0.1, 0.2])  # 四面体的方向的箭头位置
 
     # roi_plane = pv.Plane(center=tip_pos, direction=tip_dir,
     #                      i_size=0.6, j_size=0.6)

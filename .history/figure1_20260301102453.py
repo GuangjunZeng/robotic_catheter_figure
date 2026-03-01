@@ -287,7 +287,7 @@ def main():
     obs_size = cat_radius * 1.5
     # 障碍物位置
     box_pos = [[1.4, 2.14, 2.21]]     # 立方体的位置
-    sphere_pos = [[1.4, 1.73, 2.82]]  # 球的位置
+    sphere_pos = [[1.4, 1.7, 2.81]]  # 球的位置
     tetra_pos = [[0.55, 2.28, 2.2]]   # 四面体的位置
 
     plotter.add_mesh(catheter_mesh, color="#333333",
@@ -307,14 +307,14 @@ def main():
         # 先在原点创建一个对称的 Box，旋转后再平移到目标位置
         b = pv.Box(bounds=[-obs_size, obs_size, -obs_size,
                    obs_size, -obs_size, obs_size])
-        b.rotate_x(20, inplace=True)  # 绕 X 轴自转 20 度
-        b.rotate_z(45, inplace=True)  # 绕 Z 轴自转 45 度
+        b.rotate_x(20)  # 绕 X 轴自转 20 度
+        b.rotate_z(45)  # 绕 Z 轴自转 45 度
         # 计算从原点到目标位置的平移向量
         b.translate([pos[0], pos[1], pos[2]], inplace=True)
         plotter.add_mesh(b, color="red", style="wireframe",
                          line_width=3, opacity=0.8)
         add_elegant_velocity(
-            plotter, pos, [-0.06, -0.012, 0.1] if i == 0 else [-0.1, 0.2, -0.1])  # 立方体的方向的箭头位置
+            plotter, pos, [-0.01, -0.012, 0.1] if i == 0 else [-0.1, 0.2, -0.1])  # 立方体的方向的箭头位置
 
     for i, pos in enumerate(sphere_pos):
         s = pv.Sphere(radius=obs_size, center=pos,
@@ -326,19 +326,17 @@ def main():
 
     for i, pos in enumerate(tetra_pos):
         s = obs_size * 1.2
-        # 先在原点定义顶点，中心位于原点
+        # 先在原点定义顶点，旋转后再平移
         pts = np.array([[s, s, s], [-s, -s, s], [-s, s, -s], [s, -s, -s]])
         faces = np.array([3, 0, 1, 2, 3, 0, 1, 3, 3, 0, 2, 3, 3, 1, 2, 3])
         tetra = pv.PolyData(pts, faces)
-        # 四面体中心已在原点，直接旋转，需要 inplace=True 才能修改原对象
-        tetra.rotate_x(45, inplace=True)  # 先绕 X 轴倾斜，打破对称感
-        tetra.rotate_y(75, inplace=True)  # 再绕 Y 轴自转
-        # 最后平移到目标位置
+        tetra.rotate_y(150)  # 绕 Y 轴自转 30 度
+        # 计算从原点到目标位置的平移向量
         tetra.translate([pos[0], pos[1], pos[2]], inplace=True)
         plotter.add_mesh(tetra, color="red", style="wireframe",
                          line_width=3, opacity=0.8)
         add_elegant_velocity(
-            plotter, pos, [0.15, -0.03, -0.05] if i == 0 else [-0.2, -0.1, 0.2])  # 四面体的方向的箭头位置
+            plotter, pos, [0.2, 0.03, -0.05] if i == 0 else [-0.2, -0.1, 0.2])  # 四面体的方向的箭头位置
 
     # roi_plane = pv.Plane(center=tip_pos, direction=tip_dir,
     #                      i_size=0.6, j_size=0.6)
