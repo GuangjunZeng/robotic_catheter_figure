@@ -253,17 +253,11 @@ def main():
     # 重新设计控制点：确保严格的单一弯曲 (C型大弧度)
     # 目标：仅在 XOZ 平面的 +y 侧空间活动，且只有一个弯曲
     # 起点 P0 在 [0.5, 0.35, 0.7]，y 轴平移 0.35
-    # catheter_points = np.array([
-    #     [0.5, 0.35, 0.7],   
-    #     [0.75, 0.8, 0.9],    
-    #     [1.2, 1.5, 1.5],    
-    #     [1.5, 2.11, 2.45]
-    # ])
     catheter_points = np.array([
-        [0.5, 0.35, 0.7],
-        [0.6, 0.8, 0.9],
-        [0.8, 1.5, 1.5],
-        [1.1, 2.11, 2.45]
+        [0.5, 0.35, 0.7],   
+        [0.75, 0.8, 0.9],    
+        [1.2, 1.5, 1.5],    
+        [1.5, 2.11, 2.45]
     ])
     cat_radius = 0.04
     catheter_mesh, smooth_pts = create_catheter_model(
@@ -286,9 +280,9 @@ def main():
 
     obs_size = cat_radius * 1.5
     # 障碍物位置
-    box_pos = [[1.4, 2.14, 2.2]]     # 立方体的位置
-    sphere_pos = [[1.4, 1.74, 2.77]]  # 球的位置
-    tetra_pos = [[0.6, 2.19, 2.22]]   # 四面体的位置
+    box_pos = [[1.4, 2.11, 1.8]]     # 立方体的位置
+    sphere_pos = [[1.6, 1.8, 2.6]]  # 球的位置
+    tetra_pos = [[0.6, 2.15, 2.2]]   # 四面体的位置
 
     plotter.add_mesh(catheter_mesh, color="#333333",
                      smooth_shading=True, specular=0.5)

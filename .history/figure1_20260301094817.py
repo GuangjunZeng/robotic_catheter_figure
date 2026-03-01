@@ -286,9 +286,9 @@ def main():
 
     obs_size = cat_radius * 1.5
     # 障碍物位置
-    box_pos = [[1.4, 2.14, 2.2]]     # 立方体的位置
-    sphere_pos = [[1.4, 1.74, 2.77]]  # 球的位置
-    tetra_pos = [[0.6, 2.19, 2.22]]   # 四面体的位置
+    box_pos = [[1.4, 2.11, 1.8]]     # 立方体的位置
+    sphere_pos = [[1.4, 1., 2.74]]  # 球的位置
+    tetra_pos = [[0.6, 2.15, 2.2]]   # 四面体的位置
 
     plotter.add_mesh(catheter_mesh, color="#333333",
                      smooth_shading=True, specular=0.5)
