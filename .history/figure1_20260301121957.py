@@ -272,8 +272,8 @@ def main():
     # --- 新增：起始固定平面 (改为矩形，位于 XOZ 平面) ---
     # 中心点 y 轴同步平移 0.35
     # i_size 对应 X 方向，j_size 对应 Z 方向
-    width_x = 1.3
-    height_z = 1.0
+    width_x = 1
+    height_z = 1.3
     base_center = [0.5, 0.35, 0.7]
     base_plane = pv.Plane(center=base_center, direction=[0, 1, 0],
                           i_size=width_x, j_size=height_z,

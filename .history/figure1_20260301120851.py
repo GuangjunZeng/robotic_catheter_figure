@@ -269,14 +269,12 @@ def main():
     catheter_mesh, smooth_pts = create_catheter_model(
         catheter_points, radius=cat_radius)
 
-    # --- 新增：起始固定平面 (改为矩形，位于 XOZ 平面) ---
+    # --- 新增：起始固定平面 (改为正方形网格，位于 XOZ 平面) ---
     # 中心点 y 轴同步平移 0.35
-    # i_size 对应 X 方向，j_size 对应 Z 方向
-    width_x = 1.3
-    height_z = 1.0
+    grid_size = 1.0
     base_center = [0.5, 0.35, 0.7]
     base_plane = pv.Plane(center=base_center, direction=[0, 1, 0],
-                          i_size=width_x, j_size=height_z,
+                          i_size=grid_size, j_size=grid_size,
                           i_resolution=10, j_resolution=10)
     plotter.add_mesh(base_plane, color="lightgray", opacity=0.25,
                      style="surface")
@@ -296,7 +294,7 @@ def main():
     # 障碍物位置
     box_pos = [[1.4, 2.14, 2.21]]     # 立方体的位置
     sphere_pos = [[1.4, 1.88, 2.92]]  # 球的位置
-    tetra_pos = [[0.52, 2.25, 2.15]]   # 四面体的位置
+    tetra_pos = [[0.52, 2.28, 2.2]]   # 四面体的位置
 
     plotter.add_mesh(catheter_mesh, color="#333333",
                      smooth_shading=True, specular=0.5)
@@ -315,7 +313,7 @@ def main():
         # 先在原点创建一个对称的 Box，旋转后再平移到目标位置
         b = pv.Box(bounds=[-obs_size, obs_size, -obs_size,
                    obs_size, -obs_size, obs_size])
-        b.rotate_x(10, inplace=True)  # 绕 X 轴自转 20 度
+        b.rotate_x(20, inplace=True)  # 绕 X 轴自转 20 度
         b.rotate_z(45, inplace=True)  # 绕 Z 轴自转 45 度
         # 计算从原点到目标位置的平移向量
         b.translate([pos[0], pos[1], pos[2]], inplace=True)
